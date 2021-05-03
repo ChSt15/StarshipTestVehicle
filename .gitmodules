@@ -1,0 +1,3 @@
+[submodule "lib/KraftKontrol"]
+	path = lib/KraftKontrol
+	url = https://github.com/ChSt98/KraftKontrol.git
