@@ -4,7 +4,7 @@
 #include "connections/starship_v_1_0.h"
 #include "KraftKontrol.h"
 
-#include "vehicle/starship/starship.h"
+#include "starship_specifics/starship.h"
 
 
 
