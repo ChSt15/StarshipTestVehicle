@@ -32,7 +32,7 @@
 
 //TVC constraints
 #define MAX_TVC_ANGLE 30*DEGREES
-#define MAX_TVC_FORCE 30 //In newtons
+#define MAX_TVC_FORCE 30.0f //In newtons
 
 //Actuator mapping for manual control
 #define STARSHIP_ACTUATORFLAPUL 0
