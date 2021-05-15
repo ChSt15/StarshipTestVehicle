@@ -158,7 +158,7 @@ void StarshipControl::thread() {
 
     controlOutput_.force.x = 0;
     controlOutput_.force.y = 0;
-    controlOutput_.force.z = (1.0-navigationData_->position.z)*positionPF_.z + navigationData_->velocity.z*velocityPF_.z + 9.81*1; 
+    controlOutput_.force.z = (1.0-navigationData_->position.z)*positionPF_.z - navigationData_->velocity.z*velocityPF_.z + 9.81*1; 
     controlOutput_.force = navigationData_->attitude.copy().conjugate().rotateVector(controlOutput_.force); //Rotate to local coordinate system
 
     //Update control output timestamp
