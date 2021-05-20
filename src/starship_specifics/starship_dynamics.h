@@ -7,8 +7,6 @@
 
 #include "lib/Simple-Schedule/src/task_autorun_class.h"
 
-#include "connections/starship_v_1_0.h"
-
 #include "outputs/servo_ppm.h"
 
 #include "dynamics/servo_dynamics.h"
@@ -21,6 +19,8 @@
 
 #include "data_containers/navigation_data.h"
 #include "data_containers/dynamic_data.h"
+
+#include "starship_connections_v_1_0.h"
 
 
 //Flap servo accel and velocity maximums

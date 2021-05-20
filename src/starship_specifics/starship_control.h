@@ -38,6 +38,11 @@ public:
     void thread();
 
     /**
+     * @param vehicleMass The vehicles mass.
+     */
+    void setVehicleMass(const float &vehicleMass) {vehicleMass_ = vehicleMass;}
+
+    /**
      * Sets the control factor.
      * 
      * Limit is the value that if reached, the intergrator will stop integrating and also reduce for anti-windup
@@ -129,6 +134,8 @@ private:
     NavigationData* navigationData_;
 
     DynamicData controlOutput_;
+
+    float vehicleMass_ = 1.0;
 
     //P factor for angular acceleration 
     Vector angAccelPF_ = 0;

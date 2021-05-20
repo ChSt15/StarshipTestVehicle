@@ -5,9 +5,15 @@
 
 void StarshipControl::thread() {
 
+    //Position control section
+    controlOutput_.force.x = 0;
+    controlOutput_.force.y = 0;
+    controlOutput_.force.z = (1.0-navigationData_->position.z)*positionPF_.z - navigationData_->velocity.z*velocityPF_.z + 9.81*vehicleMass_; 
+    controlOutput_.force = navigationData_->attitude.copy().conjugate().rotateVector(controlOutput_.force); //Rotate to local coordinate system
+
+
     
     //Attitude control section
-
     if (controlSetpoint_->attitudeControlMode == eControlMode_t::eControlMode_Disable) {
 
         controlOutput_.force = 0;
@@ -33,7 +39,7 @@ void StarshipControl::thread() {
 
             attitudeIValue_ += error.compWiseMulti(attitudeIF_);
 
-            Vector attitudeOutput = error.compWiseMulti(attitudePF_) + (setpoint.angularRate - navigationData_->angularRate).compWiseMulti(attitudeDF_) + attitudeIValue_;
+            Vector attitudeOutput = error.compWiseMulti(attitudePF_) + navigationData_->attitude.rotateVector(setpoint.angularRate - navigationData_->angularRate).compWiseMulti(attitudeDF_) + attitudeIValue_;
 
             if (attitudeOutput.x > attitudeLimit_.x) {
                 attitudeIValue_.x -= attitudeOutput.x - attitudeLimit_.x; //Remove saturation from I according to overthreshold
@@ -63,6 +69,10 @@ void StarshipControl::thread() {
             attitudeOutput.x = constrain(attitudeOutput.x, -attitudeLimit_.x, attitudeLimit_.x);
             attitudeOutput.y = constrain(attitudeOutput.y, -attitudeLimit_.y, attitudeLimit_.y);
             attitudeOutput.z = constrain(attitudeOutput.z, -attitudeLimit_.z, attitudeLimit_.z);
+
+            //attitudeOutput = navigationData_->attitude.rotateVector(attitudeOutput);
+
+            //Serial.println(String("Output: x: ") + attitudeOutput.x + ", y: " + attitudeOutput.y + ", z: " + attitudeOutput.z);
 
             if (attitudePassThrough_) outputTotal += attitudeOutput;
             else setpoint.angularRate += attitudeOutput;
@@ -156,10 +166,7 @@ void StarshipControl::thread() {
 
     }
 
-    controlOutput_.force.x = 0;
-    controlOutput_.force.y = 0;
-    controlOutput_.force.z = (1.0-navigationData_->position.z)*positionPF_.z - navigationData_->velocity.z*velocityPF_.z + 9.81*1; 
-    controlOutput_.force = navigationData_->attitude.copy().conjugate().rotateVector(controlOutput_.force); //Rotate to local coordinate system
+    
 
     //Update control output timestamp
     controlOutput_.timestamp = micros();

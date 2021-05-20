@@ -1,7 +1,6 @@
 #include <Arduino.h>
 
 #include "boards/board_v_1_0.h"
-#include "connections/starship_v_1_0.h"
 #include "KraftKontrol.h"
 
 #include "starship_specifics/starship.h"
@@ -10,12 +9,12 @@
 
 SX1280Driver radio(SX1280_RFBUSY_PIN, SX1280_TXEN_PIN, SX1280_RXEN_PIN, SX1280_DIO1_PIN, SX1280_NRESET_PIN, SX1280_NSS_PIN);
 KraftKommunication commsPort(&radio, eKraftPacketNodeID_t::eKraftPacketNodeID_vehicle);
-//UbloxSerialGNSS gnss(&NEO_M8Q_SERIALPORT);
 
 BME280Driver Barometer(BME280_NCS_PIN, &BME280_SPIBUS);
 MPU9250Driver IMU(MPU9250_INT_PIN, MPU9250_NCS_PIN, &MPU9250_SPIBUS);
+UbloxSerialGNSS gnss(&NEO_M8Q_SERIALPORT);
 
-NavigationComplementaryFilter navigationmodule(&IMU, &IMU, &IMU, &Barometer);
+NavigationComplementaryFilter navigationmodule(&IMU, &IMU, &IMU, &Barometer, &gnss);
 GuidanceFlyByWire guidanceModule;
 StarshipControl controlModule(&guidanceModule, &navigationmodule);
 StarshipDynamics dynamicsModule(&controlModule, &navigationmodule);
@@ -23,6 +22,10 @@ StarshipDynamics dynamicsModule(&controlModule, &navigationmodule);
 KraftKonnectNetwork network(&commsPort);
 
 Starship vehicle(&guidanceModule, &navigationmodule, &controlModule, &dynamicsModule);
+
+
+uint32_t packetsCounter = 0;
+uint32_t packetsSent = 0;
 
 
 
@@ -93,10 +96,10 @@ public:
         //Serial.println(navigationmodule.getNavigationData().position.z);
         //Serial.println(IMU.gyroRate());
         //Serial.println(String("linear accel: x: ") + navigationmodule.getNavigationData().linearAcceleration.x + ", y: " + navigationmodule.getNavigationData().linearAcceleration.x + ", z: " + navigationmodule.getNavigationData().linearAcceleration.z);
-        Serial.println(String("speed: x: ") + navigationmodule.getNavigationData().velocity.x + ", y: " + navigationmodule.getNavigationData().velocity.x + ", z: " + navigationmodule.getNavigationData().velocity.z);
+        //Serial.println(String("speed: x: ") + navigationmodule.getNavigationData().velocity.x + ", y: " + navigationmodule.getNavigationData().velocity.x + ", z: " + navigationmodule.getNavigationData().velocity.z);
         //Serial.println(String("position: x: ") + navigationmodule.getNavigationData().position.x + ", y: " + navigationmodule.getNavigationData().position.x + ", z: " + navigationmodule.getNavigationData().position.z);
         //Serial.println(String("Attitude: w: ") + navigationmodule.getNavigationData().attitude.w + " , x: " + navigationmodule.getNavigationData().attitude.x + ", y: " + navigationmodule.getNavigationData().attitude.x + ", z: " + navigationmodule.getNavigationData().attitude.z);
-        //Serial.println(String("GNSS status: ") + deviceStatusToString(gnss.getModuleStatus()) + String(", sats: ") + gnss.getNumSatellites() + " , rate: " + gnss.positionRate());
+        Serial.println(String("GNSS status: ") + deviceStatusToString(gnss.getModuleStatus()) + String(", sats: ") + gnss.getNumSatellites() + " , rate: " + gnss.positionRate() + " , lock valid: " + (gnss.getGNSSLockValid() ? "true":"false"));
 
     }
 
@@ -112,6 +115,32 @@ public:
 
     void thread() {
 
+
+        if (commsPort.networkBusy()) return;
+
+        KraftMessageAttitude attitudeMessage(navigationmodule.getNavigationData().attitude);
+        //commsPort.sendMessage(&attitudeMessage, eKraftPacketNodeID_t::eKraftPacketNodeID_broadcast);
+
+        KraftMessagePosition positionMessage(navigationmodule.getNavigationData().position, navigationmodule.getNavigationData().timestamp);
+        commsPort.sendMessage(&positionMessage, eKraftPacketNodeID_t::eKraftPacketNodeID_broadcast);
+
+        KraftMessageVehicleModeIs vehicleMode(vehicle.getVehicleData().vehicleMode);
+        //commsPort.sendMessage(&vehicleMode, eKraftPacketNodeID_t::eKraftPacketNodeID_broadcast);
+
+
+        if (true) {
+
+            WorldPosition worldPosition; uint32_t time;
+            //gnss.getPosition(&worldPosition, &time);
+
+            //KraftMessageGNSSData gnssMessage(worldPosition, gnss.getNumSatellites());
+
+            //commsPort.sendMessage(&gnssMessage, eKraftPacketNodeID_t::eKraftPacketNodeID_broadcast);
+
+        }
+
+
+
         //KraftMessageStringPacket stringPacket((String("Hello im ") + commsPort.getSelfID() + "! Time is: " + millis()).c_str());
 
         //commsPort.sendMessage(&stringPacket, eKraftPacketNodeID_t::eKraftPacketNodeID_broadcast);
@@ -121,14 +150,6 @@ public:
         //KraftMessageFullKinematics message(navigationmodule.getNavigationData());
 
         //commsPort.sendMessage(&message, eKraftPacketNodeID_t::eKraftPacketNodeID_broadcast);
-
-        KraftMessageAttitude attitudeMessage(navigationmodule.getNavigationData().attitude);
-
-        commsPort.sendMessage(&attitudeMessage, eKraftPacketNodeID_t::eKraftPacketNodeID_broadcast);
-
-        KraftMessagePosition positionMessage(navigationmodule.getNavigationData().position, navigationmodule.getNavigationData().timestamp);
-
-        //commsPort.sendMessage(&positionMessage, eKraftPacketNodeID_t::eKraftPacketNodeID_broadcast);
 
         /*if (gnss.positionAvailable()) {
 
@@ -143,9 +164,7 @@ public:
 
         
 
-        KraftMessageVehicleModeIs vehicleMode(vehicle.getVehicleData().vehicleMode);
-
-        commsPort.sendMessage(&vehicleMode, eKraftPacketNodeID_t::eKraftPacketNodeID_broadcast);
+        
 
         //stopTaskThreading();
 
