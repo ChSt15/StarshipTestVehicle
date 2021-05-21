@@ -40,7 +40,19 @@ public:
     /**
      * @param vehicleMass The vehicles mass.
      */
-    void setVehicleMass(const float &vehicleMass) {vehicleMass_ = vehicleMass;}
+    inline void setVehicleMass(const float &vehicleMass) {vehicleMass_ = vehicleMass;}
+
+    /**
+     * Sets the control modules guidance module.
+     * @param guidanceModule Pointer to module to use.
+     */
+    inline void setGuidanceModule(Guidance_Interface* guidanceModule) {controlSetpoint_ = guidanceModule->getControlSetpointPointer();}
+
+    /**
+     * Sets the control modules navigation module.
+     * @param navigationModule Pointer to module to use.
+     */
+    inline void setGuidanceModule(Navigation_Interface* navigationModule) {navigationData_ = navigationModule->getNavigationDataPointer();}
 
     /**
      * Sets the control factor.
