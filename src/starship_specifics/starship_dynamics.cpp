@@ -39,16 +39,16 @@ void StarshipDynamics::thread() {
             DynamicData dynamicSetpoint = controlModule_->getDynamicsOutput();
 
             float force = 0;
-            Vector directionBuf = Vector(0,0,1);
-            Vector direction;
+            Vector<> directionBuf = Vector<>(0,0,1);
+            Vector<> direction;
 
             //TVCCalculator_.dynamicsSetpoint(dynamicSetpoint);
             //TVCCalculator_.getTVCSettings(force, directionBuf);
 
-            Vector forceVector;
+            Vector<> forceVector;
 
-            forceVector = dynamicSetpoint.torqe.cross(-Vector(0,0,1/0.35));
-            forceVector += dynamicSetpoint.force.getProjectionOn(Vector(0,0,1));
+            forceVector = dynamicSetpoint.torqe.cross(-Vector<>(0,0,1/0.35));
+            forceVector += dynamicSetpoint.force.getProjectionOn(Vector<>(0,0,1));
 
             direction.x = -forceVector.y;
             direction.y = forceVector.x;
@@ -62,14 +62,14 @@ void StarshipDynamics::thread() {
             //Serial.println(String("Torqe dyn: x: ") + dynamicSetpoint.torqe.x + ", y: " + dynamicSetpoint.torqe.y + ", z: " + dynamicSetpoint.torqe.z);
 
             //Something seems to be wrong, i dont know why. This remapping seems to fix the issue.
-            /*Vector direction;
+            /*Vector<> direction;
             direction.z = directionBuf.z;
             direction.x = -directionBuf.y;
             direction.y = directionBuf.x;*/
 
             //Serial.println(String("Direction: x: ") + direction.x + ", y: " + direction.y + ", z: " + direction.z + ", force: " + force);
 
-            //direction = Vector(0,0,1); //Uncomment this for yaw testing.
+            //direction = Vector<>(0,0,1); //Uncomment this for yaw testing.
 
             //TVC adjustment scalers.
             const float yawTorqeScaler = 10.0; //Used for adjusting yaw torqe.
@@ -192,7 +192,7 @@ void StarshipDynamics::thread() {
                 break;
             }
 
-            Vector direction = Quaternion(Vector(0,0,1), float(millis())/1000.0f).rotateVector(Vector(1,0,1));//_navigationData->attitude.copy().conjugate().rotateVector(Vector(0,0,1));
+            Vector<> direction = Quaternion<>(Vector<>(0,0,1), float(millis())/1000.0f).rotateVector(Vector<>(1,0,1));//_navigationData->attitude.copy().conjugate().rotateVector(Vector<>(0,0,1));
 
             //calculate TVC angles
             float TVC1, TVC2, TVC3, TVC4;
@@ -292,7 +292,7 @@ void StarshipDynamics::thread() {
 
 
 
-void StarshipDynamics::getTVCAngles(const Vector &direction, const float &twist, float &tvc1, float &tvc2, float &tvc3, float &tvc4) {
+void StarshipDynamics::getTVCAngles(const Vector<> &direction, const float &twist, float &tvc1, float &tvc2, float &tvc3, float &tvc4) {
 
     tvc1 = atan2(direction.x, direction.z);
     tvc2 = atan2(direction.y, direction.z);
@@ -336,6 +336,6 @@ void StarshipDynamics::init() {
     TVCServo4_.setAngle(0);
 
     TVCCalculator_.setDynamicConstraints(MAX_TVC_FORCE, MAX_TVC_ANGLE);
-    TVCCalculator_.setTVCParameters(Vector(0,0,-0.4), Vector(0,0,1));
+    TVCCalculator_.setTVCParameters(Vector<>(0,0,-0.4), Vector<>(0,0,1));
 
 }

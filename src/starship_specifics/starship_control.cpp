@@ -25,21 +25,21 @@ void StarshipControl::thread() {
 
         ControlData setpoint = *controlSetpoint_;
 
-        Vector attitudeOutput(0);
-        Vector angVelOutput(0);
-        Vector angAccelOutput(0);
+        Vector<> attitudeOutput(0);
+        Vector<> angVelOutput(0);
+        Vector<> angAccelOutput(0);
 
-        Vector outputTotal(0);
+        Vector<> outputTotal(0);
 
         if (setpoint.attitudeControlMode == eControlMode_t::eControlMode_Position || setpoint.attitudeControlMode == eControlMode_t::eControlMode_Velocity_Position || setpoint.attitudeControlMode == eControlMode_t::eControlMode_Acceleration_Velocity_Position) {
 
-            Vector error = (setpoint.attitude*navigationData_->attitude.copy().conjugate()).toVector(); //Error is calculated here already in local coordinate system.
+            Vector<> error = (setpoint.attitude*navigationData_->attitude.copy().conjugate()).toVector(); //Error is calculated here already in local coordinate system.
 
             //Serial.println(String("Error: x: ") + error.x + ", y: " + error.y + ", z: " + error.z);
 
             attitudeIValue_ += error.compWiseMulti(attitudeIF_);
 
-            Vector attitudeOutput = error.compWiseMulti(attitudePF_) + navigationData_->attitude.rotateVector(setpoint.angularRate - navigationData_->angularRate).compWiseMulti(attitudeDF_) + attitudeIValue_;
+            Vector<> attitudeOutput = error.compWiseMulti(attitudePF_) + navigationData_->attitude.rotateVector(setpoint.angularRate - navigationData_->angularRate).compWiseMulti(attitudeDF_) + attitudeIValue_;
 
             if (attitudeOutput.x > attitudeLimit_.x) {
                 attitudeIValue_.x -= attitudeOutput.x - attitudeLimit_.x; //Remove saturation from I according to overthreshold
@@ -81,11 +81,11 @@ void StarshipControl::thread() {
 
         if (setpoint.attitudeControlMode == eControlMode_t::eControlMode_Velocity || setpoint.attitudeControlMode == eControlMode_t::eControlMode_Velocity_Position || setpoint.attitudeControlMode == eControlMode_t::eControlMode_Acceleration_Velocity_Position) {
 
-            Vector error = navigationData_->attitude.copy().conjugate().rotateVector(setpoint.angularRate - navigationData_->angularRate); //Calculate setpoint error and then rotate to local coordinate system.
+            Vector<> error = navigationData_->attitude.copy().conjugate().rotateVector(setpoint.angularRate - navigationData_->angularRate); //Calculate setpoint error and then rotate to local coordinate system.
 
             angVelIValue_ += error.compWiseMulti(angVelIF_);
 
-            Vector angVelOutput = error.compWiseMulti(angVelPF_) + (setpoint.angularAcceleration - navigationData_->angularAcceleration).compWiseMulti(angVelDF_) + angVelIValue_;
+            Vector<> angVelOutput = error.compWiseMulti(angVelPF_) + (setpoint.angularAcceleration - navigationData_->angularAcceleration).compWiseMulti(angVelDF_) + angVelIValue_;
 
             if (angVelOutput.x > angVelLimit_.x) {
                 angVelIValue_.x -= angVelOutput.x - angVelLimit_.x; //Remove saturation from I according to overthreshold
@@ -124,11 +124,11 @@ void StarshipControl::thread() {
 
         if (setpoint.attitudeControlMode == eControlMode_t::eControlMode_Acceleration || setpoint.attitudeControlMode == eControlMode_t::eControlMode_Acceleration_Velocity || setpoint.attitudeControlMode == eControlMode_t::eControlMode_Acceleration_Velocity_Position) {
 
-            Vector error = navigationData_->attitude.copy().conjugate().rotateVector(setpoint.angularAcceleration - navigationData_->angularAcceleration); //Calculate setpoint error and then rotate to local coordinate system.
+            Vector<> error = navigationData_->attitude.copy().conjugate().rotateVector(setpoint.angularAcceleration - navigationData_->angularAcceleration); //Calculate setpoint error and then rotate to local coordinate system.
 
             angAccelIValue_ += error.compWiseMulti(angAccelIF_);
 
-            Vector angAccelOutput = error.compWiseMulti(angAccelPF_)/* + (setpoint.angularAcceleration - navigationData_->angularAcceleration).compWiseMulti(angVelDF_) currently not implemented */ + angAccelIValue_;
+            Vector<> angAccelOutput = error.compWiseMulti(angAccelPF_)/* + (setpoint.angularAcceleration - navigationData_->angularAcceleration).compWiseMulti(angVelDF_) currently not implemented */ + angAccelIValue_;
 
             if (angAccelOutput.x > angAccelLimit_.x) {
                 angAccelIValue_.x -= angAccelOutput.x - angAccelLimit_.x; //Remove saturation from I according to overthreshold

@@ -51,9 +51,9 @@ void Starship::thread() {
 void Starship::init() {
 
     //Setup hover controller
-    //control_->setAngularVelocityPIDFactors(Vector(1,1,0.1), Vector(0), Vector(0), Vector(1000), true);
-    control_->setAttitudePIDFactors(Vector(40,40,3), Vector(0,0,0), Vector(1,1,0.2), Vector(1000), true);
-    control_->setPositionPIDFactors(Vector(0,0,20), Vector(0,0,0), Vector(0,0,5), Vector(1000), true);
+    //control_->setAngularVelocityPIDFactors(Vector<>(1,1,0.1), Vector<>(0), Vector<>(0), Vector<>(1000), true);
+    control_->setAttitudePIDFactors(Vector<>(40,40,3), Vector<>(0,0,0), Vector<>(1,1,0.2), Vector<>(1000), true);
+    control_->setPositionPIDFactors(Vector<>(0,0,20), Vector<>(0,0,0), Vector<>(0,0,5), Vector<>(1000), true);
 
     //Mark that vehicle has been initialized.
     vehicleInitialized_ = true;

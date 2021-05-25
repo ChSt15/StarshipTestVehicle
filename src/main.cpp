@@ -14,7 +14,7 @@ BME280Driver Barometer(BME280_NCS_PIN, &BME280_SPIBUS);
 MPU9250Driver IMU(MPU9250_INT_PIN, MPU9250_NCS_PIN, &MPU9250_SPIBUS);
 UbloxSerialGNSS gnss(&NEO_M8Q_SERIALPORT);
 
-NavigationComplementaryFilter navigationmodule(&IMU, &IMU, &IMU, &Barometer, &gnss);
+NavigationComplementaryFilter navigationmodule(&IMU, &IMU, &IMU/*, &Barometer, &gnss*/);
 GuidanceFlyByWire guidanceModule;
 StarshipControl controlModule(&guidanceModule, &navigationmodule);
 StarshipDynamics dynamicsModule(&controlModule, &navigationmodule);
@@ -47,14 +47,14 @@ void radioControlPacketEventHandler() {
 
     if (x != 0 && y != 0) {
 
-        Vector rotVec = Vector(x, y, 0);
+        Vector<> rotVec = Vector<>(x, y, 0);
 
-        Quaternion attitude = Quaternion(rotVec.copy().normalize(), rotVec.magnitude());
+        Quaternion<> attitude = Quaternion<>(rotVec.copy().normalize(), rotVec.magnitude());
 
         guidanceModule.setAttitude(attitude);
-        guidanceModule.setAngularRate(Vector(0,0,0));
+        guidanceModule.setAngularRate(Vector<>(0,0,0));
         guidanceModule.setPosition(navigationmodule.getNavigationData().position);
-        guidanceModule.setVelocity(Vector(0,0,0));
+        guidanceModule.setVelocity(Vector<>(0,0,0));
 
     }
 
@@ -83,7 +83,7 @@ void vehicleModeSetPacketEventHandler() {
 class Observer: public Task_Abstract {
 public:
 
-    Observer() : Task_Abstract(20, eTaskPriority_t::eTaskPriority_Middle, true) {}
+    Observer() : Task_Abstract(10, eTaskPriority_t::eTaskPriority_Middle, true) {}
 
     void thread() {
 
@@ -93,13 +93,15 @@ public:
 
         //float angle = navigationmodule.getNavigationData().attitude.rotateVector(Vector(0,0,1)).getAngleTo(Vector(0,0,1));
 
+        Serial.println();
+
         //Serial.println(navigationmodule.getNavigationData().position.z);
         //Serial.println(IMU.gyroRate());
         //Serial.println(String("linear accel: x: ") + navigationmodule.getNavigationData().linearAcceleration.x + ", y: " + navigationmodule.getNavigationData().linearAcceleration.x + ", z: " + navigationmodule.getNavigationData().linearAcceleration.z);
         //Serial.println(String("speed: x: ") + navigationmodule.getNavigationData().velocity.x + ", y: " + navigationmodule.getNavigationData().velocity.x + ", z: " + navigationmodule.getNavigationData().velocity.z);
         //Serial.println(String("position: x: ") + navigationmodule.getNavigationData().position.x + ", y: " + navigationmodule.getNavigationData().position.x + ", z: " + navigationmodule.getNavigationData().position.z);
-        //Serial.println(String("Attitude: w: ") + navigationmodule.getNavigationData().attitude.w + " , x: " + navigationmodule.getNavigationData().attitude.x + ", y: " + navigationmodule.getNavigationData().attitude.x + ", z: " + navigationmodule.getNavigationData().attitude.z);
-        Serial.println(String("GNSS status: ") + deviceStatusToString(gnss.getModuleStatus()) + String(", sats: ") + gnss.getNumSatellites() + " , rate: " + gnss.positionRate() + " , lock valid: " + (gnss.getGNSSLockValid() ? "true":"false"));
+        Serial.println(String("Attitude: w: ") + navigationmodule.getNavigationData().attitude.w + " , x: " + navigationmodule.getNavigationData().attitude.x + ", y: " + navigationmodule.getNavigationData().attitude.x + ", z: " + navigationmodule.getNavigationData().attitude.z);
+        //Serial.println(String("GNSS status: ") + deviceStatusToString(gnss.getModuleStatus()) + String(", sats: ") + gnss.getNumSatellites() + " , rate: " + gnss.positionRate() + " , lock valid: " + (gnss.getGNSSLockValid() ? "true":"false"));
 
     }
 

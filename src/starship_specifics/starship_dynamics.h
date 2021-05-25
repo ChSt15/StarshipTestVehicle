@@ -249,10 +249,10 @@ private:
     uint8_t flapTestCounter_ = 0;
 
     //Helps with calculating TVC stuff
-    TVCDynamics TVCCalculator_ = TVCDynamics(Vector(0,0,-0.4), Vector(0,0,-1));
+    TVCDynamics TVCCalculator_ = TVCDynamics(Vector<>(0,0,-0.4), Vector<>(0,0,-1));
 
 
-    void getTVCAngles(const Vector &direction, const float &twist, float &tvc1, float &tvc2, float &tvc3, float &tvc4);
+    void getTVCAngles(const Vector<> &direction, const float &twist, float &tvc1, float &tvc2, float &tvc3, float &tvc4);
     
     
 };
