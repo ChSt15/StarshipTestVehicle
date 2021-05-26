@@ -8,18 +8,18 @@
 
 
 SX1280Driver radio(SX1280_RFBUSY_PIN, SX1280_TXEN_PIN, SX1280_RXEN_PIN, SX1280_DIO1_PIN, SX1280_NRESET_PIN, SX1280_NSS_PIN);
-KraftKommunication commsPort(&radio, eKraftPacketNodeID_t::eKraftPacketNodeID_vehicle);
+//KraftKommunication commsPort(&radio, eKraftPacketNodeID_t::eKraftPacketNodeID_vehicle);
 
 BME280Driver Barometer(BME280_NCS_PIN, &BME280_SPIBUS);
 MPU9250Driver IMU(MPU9250_INT_PIN, MPU9250_NCS_PIN, &MPU9250_SPIBUS);
 UbloxSerialGNSS gnss(&NEO_M8Q_SERIALPORT);
 
-NavigationComplementaryFilter navigationmodule(&IMU, &IMU, &IMU/*, &Barometer, &gnss*/);
+NavigationComplementaryFilter navigationmodule(&IMU, &IMU, &IMU, &Barometer, &gnss);
 GuidanceFlyByWire guidanceModule;
 StarshipControl controlModule(&guidanceModule, &navigationmodule);
 StarshipDynamics dynamicsModule(&controlModule, &navigationmodule);
 
-KraftKonnectNetwork network(&commsPort);
+//KraftKonnectNetwork network(&commsPort);
 
 Starship vehicle(&guidanceModule, &navigationmodule, &controlModule, &dynamicsModule);
 
@@ -28,7 +28,7 @@ uint32_t packetsCounter = 0;
 uint32_t packetsSent = 0;
 
 
-
+/*
 void radioControlPacketEventHandler() {
 
 
@@ -76,7 +76,7 @@ void vehicleModeSetPacketEventHandler() {
         vehicle.disarmVehicle();
     }
 
-}
+}*/
 
 
 
@@ -93,14 +93,15 @@ public:
 
         //float angle = navigationmodule.getNavigationData().attitude.rotateVector(Vector(0,0,1)).getAngleTo(Vector(0,0,1));
 
-        Serial.println();
+        //Serial.println();
 
         //Serial.println(navigationmodule.getNavigationData().position.z);
         //Serial.println(IMU.gyroRate());
         //Serial.println(String("linear accel: x: ") + navigationmodule.getNavigationData().linearAcceleration.x + ", y: " + navigationmodule.getNavigationData().linearAcceleration.x + ", z: " + navigationmodule.getNavigationData().linearAcceleration.z);
-        //Serial.println(String("speed: x: ") + navigationmodule.getNavigationData().velocity.x + ", y: " + navigationmodule.getNavigationData().velocity.x + ", z: " + navigationmodule.getNavigationData().velocity.z);
-        //Serial.println(String("position: x: ") + navigationmodule.getNavigationData().position.x + ", y: " + navigationmodule.getNavigationData().position.x + ", z: " + navigationmodule.getNavigationData().position.z);
-        Serial.println(String("Attitude: w: ") + navigationmodule.getNavigationData().attitude.w + " , x: " + navigationmodule.getNavigationData().attitude.x + ", y: " + navigationmodule.getNavigationData().attitude.x + ", z: " + navigationmodule.getNavigationData().attitude.z);
+        //Serial.println(String("speed: x: ") + navigationmodule.getNavigationData().velocity.x + ", y: " + navigationmodule.getNavigationData().velocity.x + ", z: " + navigationmodule.getNavigationData().velocity.z + ", error x: " + navigationmodule.getNavigationData().velocityError.x + ", y: " + navigationmodule.getNavigationData().velocityError.x + ", z: " + navigationmodule.getNavigationData().velocityError.z);
+        Serial.print(String("pos: x: ") + navigationmodule.getNavigationData().position.x + "+-" + navigationmodule.getNavigationData().positionError.x + ", y: " + navigationmodule.getNavigationData().position.y + "+-" + navigationmodule.getNavigationData().positionError.y + ", z: " + navigationmodule.getNavigationData().position.z + "+-" + navigationmodule.getNavigationData().positionError.z);
+        Serial.print(String(" att: w: ") + navigationmodule.getNavigationData().attitude.w + " , x: " + navigationmodule.getNavigationData().attitude.x + ", y: " + navigationmodule.getNavigationData().attitude.y + ", z: " + navigationmodule.getNavigationData().attitude.z + ", sats: " + gnss.getNumSatellites());
+        Serial.println(String(" Absolute: lat: ") + navigationmodule.getNavigationData().absolutePosition.latitude + " , long: " + navigationmodule.getNavigationData().absolutePosition.longitude + ", alt: " + navigationmodule.getNavigationData().absolutePosition.height + ", pos rate: " + gnss.positionRate());
         //Serial.println(String("GNSS status: ") + deviceStatusToString(gnss.getModuleStatus()) + String(", sats: ") + gnss.getNumSatellites() + " , rate: " + gnss.positionRate() + " , lock valid: " + (gnss.getGNSSLockValid() ? "true":"false"));
 
     }
@@ -113,12 +114,12 @@ public:
 class NetworkingTransmitter: public Task_Abstract {
 public:
 
-    NetworkingTransmitter() : Task_Abstract(10, eTaskPriority_t::eTaskPriority_Middle, true) {}
+    NetworkingTransmitter() : Task_Abstract(100, eTaskPriority_t::eTaskPriority_Middle, true) {}
 
     void thread() {
 
 
-        if (commsPort.networkBusy()) return;
+        /*if (commsPort.networkBusy()) return;
 
         KraftMessageAttitude attitudeMessage(navigationmodule.getNavigationData().attitude);
         //commsPort.sendMessage(&attitudeMessage, eKraftPacketNodeID_t::eKraftPacketNodeID_broadcast);
@@ -139,7 +140,7 @@ public:
 
             //commsPort.sendMessage(&gnssMessage, eKraftPacketNodeID_t::eKraftPacketNodeID_broadcast);
 
-        }
+        }*/
 
 
 
@@ -164,8 +165,10 @@ public:
 
         }*/
 
-        
 
+        uint32_t time = millis();
+
+        radio.sendBuffer((uint8_t*)&time, sizeof(time));
         
 
         //stopTaskThreading();
@@ -190,8 +193,8 @@ void setup() {
     Task_Abstract::schedulerInitTasks();
 
     //User code here:
-    network.setEventHandler(radioControlPacketEventHandler, eKraftMessageType_KraftKontrol_t::eKraftMessageType_KraftKontrol_RCChannels);
-    network.setEventHandler(vehicleModeSetPacketEventHandler, eKraftMessageType_KraftKontrol_t::eKraftMessageType_KraftKontrol_VehicleModeSet);
+    //network.setEventHandler(radioControlPacketEventHandler, eKraftMessageType_KraftKontrol_t::eKraftMessageType_KraftKontrol_RCChannels);
+    //network.setEventHandler(vehicleModeSetPacketEventHandler, eKraftMessageType_KraftKontrol_t::eKraftMessageType_KraftKontrol_VehicleModeSet);
 
 }
 
