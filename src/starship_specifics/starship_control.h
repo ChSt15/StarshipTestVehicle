@@ -24,7 +24,7 @@ public:
      * @param rate is the rate at which it will be ran at.
      * @param priority is the priority the module will have.
      */
-    StarshipControl(Guidance_Interface* guidanceModule, Navigation_Interface* navigationModule) : Task_Abstract(1000, eTaskPriority_t::eTaskPriority_High, true) {
+    StarshipControl(Guidance_Interface* guidanceModule, Navigation_Interface* navigationModule) : Task_Abstract(4000, eTaskPriority_t::eTaskPriority_High, true) {
         controlSetpoint_ = guidanceModule->getControlSetpointPointer();
         navigationData_ = navigationModule->getNavigationDataPointer();
     }
@@ -36,6 +36,17 @@ public:
      * @return none.
      */
     void thread();
+
+    void reset() override {
+
+        angAccelIValue_ = 0; 
+        angVelIValue_ = 0; 
+        attitudeIValue_ = 0; 
+        accelIValue_ = 0;
+        velocityIValue_ = 0;
+        positionIValue_ = 0; 
+
+    }
 
     /**
      * @param vehicleMass The vehicles mass.
