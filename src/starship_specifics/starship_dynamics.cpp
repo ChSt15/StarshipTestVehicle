@@ -36,80 +36,12 @@ void StarshipDynamics::thread() {
 
         if (!actuatorManualMode_ && !actuatorTesting_) {   
 
-            DynamicData dynamicSetpoint = controlModule_->getDynamicsOutput();
+            DynamicData currentForces;
+            currentForces.force = 0;
+            currentForces.torqe = 0;
 
-            float force = 0;
-            Vector<> directionBuf = Vector<>(0,0,1);
-            Vector<> direction;
-
-            //TVCCalculator_.dynamicsSetpoint(dynamicSetpoint);
-            //TVCCalculator_.getTVCSettings(force, directionBuf);
-
-            Vector<> forceVector;
-
-            forceVector = dynamicSetpoint.torqe.cross(-Vector<>(0,0,1/0.35));
-            forceVector += dynamicSetpoint.force.getProjectionOn(Vector<>(0,0,1));
-
-            direction.x = -forceVector.y;
-            direction.y = forceVector.x;
-            direction.z = forceVector.z;
-            direction.normalize();
-            force = forceVector.magnitude();
-
-            force = min(force, MAX_TVC_FORCE);
-
-            //Serial.println(String("Force: x: ") + dynamicSetpoint.force.x + ", y: " + dynamicSetpoint.force.y + ", z: " + dynamicSetpoint.force.z);
-            //Serial.println(String("Torqe dyn: x: ") + dynamicSetpoint.torqe.x + ", y: " + dynamicSetpoint.torqe.y + ", z: " + dynamicSetpoint.torqe.z);
-
-            //Something seems to be wrong, i dont know why. This remapping seems to fix the issue.
-            /*Vector<> direction;
-            direction.z = directionBuf.z;
-            direction.x = -directionBuf.y;
-            direction.y = directionBuf.x;*/
-
-            //Serial.println(String("Direction: x: ") + direction.x + ", y: " + direction.y + ", z: " + direction.z + ", force: " + force);
-
-            //direction = Vector<>(0,0,1); //Uncomment this for yaw testing.
-
-            //TVC adjustment scalers.
-            const float yawTorqeScaler = 10.0; //Used for adjusting yaw torqe.
-            const float angleScaler = 1.0; //Used to scale TVC angle. Some systems like fins need to be adjusted
-
-            //calculate TVC angles
-            float TVC1, TVC2, TVC3, TVC4;
-            float twist = -constrain(dynamicSetpoint.torqe.z*yawTorqeScaler/angleScaler/force, -45*DEGREES, 45*DEGREES);
-            getTVCAngles(direction, twist, TVC1, TVC2, TVC3, TVC4);
-
-            TVCServo1_.setAngle(TVC1*angleScaler);
-            TVCServo2_.setAngle(TVC2*angleScaler);
-            TVCServo3_.setAngle(TVC3*angleScaler);
-            TVCServo4_.setAngle(TVC4*angleScaler);
-
-            /*TVCServo1_.setAngle(0*DEGREES);
-            TVCServo2_.setAngle(0*DEGREES);
-            TVCServo3_.setAngle(0*DEGREES);
-            TVCServo4_.setAngle(90*DEGREES);*/
-
-            flapULControl_.setPosition(90*DEGREES);
-            flapURControl_.setPosition(90*DEGREES);
-            flapDRControl_.setPosition(90*DEGREES);
-            flapDLControl_.setPosition(90*DEGREES);
-
-
-            //force = force/MAX_TVC_FORCE;
-
-            //force = min(force, 0);
-
-            //Serial.println(force);
-
-            force = dynamicSetpoint.force.z;
-
-            force = max(force, float(0));
-
-            //Serial.println(force);
-
-            motorCW_.setChannel(force/MAX_TVC_FORCE);
-            motorCCW_.setChannel(force/MAX_TVC_FORCE);
+            if (enableFlaps_) currentForces = flapsDynamicsCalculation(currentForces); //Cascade them to let one correct others residual forces
+            if (enableTVC_) tvcDynamicsCalculation(currentForces);
 
         } else if (actuatorManualMode_ && !actuatorTesting_) {
 
@@ -287,6 +219,156 @@ void StarshipDynamics::thread() {
     //flapURControl_.thread();
 
     //Serial.println(String("Motor: x: ") + motorCW_.getChannel());
+
+}
+
+
+
+DynamicData StarshipDynamics::flapsDynamicsCalculation(const DynamicData &currentDynamics) {
+
+    
+    DynamicData dynamicSetpoint = controlModule_->getDynamicsOutput();
+
+    //Calculate speed for flaps
+    float windSpeed = Vector<>(0,0,19).magnitude();// (navigationData_->velocity.getProjectionOn(navigationData_->attitude.rotateVector(Vector<>(0,0,1)))).magnitude();
+
+    //Need these to simplify writting formulas below
+    float fx = 0;//dynamicSetpoint.force.x;
+    float fy = 0;//dynamicSetpoint.force.y;
+    float mx = dynamicSetpoint.torqe.x;
+    float my = dynamicSetpoint.torqe.y;
+    float mz = dynamicSetpoint.torqe.z;
+
+    float l = BOTTOM_FLAP_Z_FROM_CG;
+    float d = TOP_FLAP_Z_FROM_CG;
+    float b = FLAP_XY_FROM_CG;
+
+    //Some pretty big matrix calcuation to get the forces of each flap
+
+    float d2p2l = 1/(2*d+2*l); // Helper to optimise execution speed
+
+    float f1x = 0.25*fx + 1/4/d*my - 1/4/b/mz;
+    float f1y = l*d2p2l*fy - d2p2l*mx;
+    float f2x = 0.25*fx + 1/4/d*my + 1/4/b*mz;
+    float f2y = l*d2p2l*fy - d2p2l*mx;
+    float f3x = 0.25*fx - 1/4/d*my - 1/4/b*mz;
+    float f3y = d*d2p2l*fy + d2p2l*mx;
+    float f4x = 0.25*fx - 1/4/d*my + 1/4/b*mz;
+    float f4y = d*d2p2l*fy + d2p2l*mx;
+
+    //Now use these calculated forces for each flap to calculate the angle at which they need to be at.
+    float tl = getAngle(f1x, f1y, windSpeed, 1.225f, 2.0, TOP_FLAP_AREA);
+    float tr = getAngle(f2x, -f2y, windSpeed, 1.225f, 2.0, TOP_FLAP_AREA);
+    float bl = getAngle(f3x, f3y, windSpeed, 1.225f, 2.0, BOTTOM_FLAP_AREA);
+    float br = getAngle(f4x, -f4y, windSpeed, 1.225f, 2.0, BOTTOM_FLAP_AREA);
+
+    Serial.println(String("angles: tl: ") + tl + ", tr: " + tr + ", bl: " + bl + ", br: " + br);
+
+
+    //Update actuators
+
+    //Update flap settings
+    flapULControl_.setPosition(tl);
+    flapURControl_.setPosition(tr);
+    flapDRControl_.setPosition(br);
+    flapDLControl_.setPosition(bl);
+
+    //Disable other actuators
+    TVCServo1_.setAngle(0);
+    TVCServo2_.setAngle(0);
+    TVCServo3_.setAngle(0);
+    TVCServo4_.setAngle(0);
+
+    motorCW_.setChannel(0);
+    motorCCW_.setChannel(0);
+    
+    //Output new dynamics
+
+    return currentDynamics; //Temporary
+
+}
+
+
+
+DynamicData StarshipDynamics::tvcDynamicsCalculation(const DynamicData &currentDynamics) {
+
+    DynamicData dynamicSetpoint = controlModule_->getDynamicsOutput();
+
+    dynamicSetpoint.force -= currentDynamics.force;
+    dynamicSetpoint.torqe -= currentDynamics.torqe;
+
+    float force = 0;
+    Vector<> directionBuf = Vector<>(0,0,1);
+    Vector<> direction;
+
+    //TVCCalculator_.dynamicsSetpoint(dynamicSetpoint);
+    //TVCCalculator_.getTVCSettings(force, directionBuf);
+
+    Vector<> forceVector;
+
+    forceVector = dynamicSetpoint.torqe.cross(-Vector<>(0,0,1/0.35));
+    forceVector += dynamicSetpoint.force.getProjectionOn(Vector<>(0,0,1));
+
+    direction.x = -forceVector.y;
+    direction.y = forceVector.x;
+    direction.z = forceVector.z;
+    direction.normalize();
+    force = forceVector.magnitude();
+
+    force = min(force, MAX_TVC_FORCE);
+
+    //Serial.println(String("Force: x: ") + dynamicSetpoint.force.x + ", y: " + dynamicSetpoint.force.y + ", z: " + dynamicSetpoint.force.z);
+    //Serial.println(String("Torqe dyn: x: ") + dynamicSetpoint.torqe.x + ", y: " + dynamicSetpoint.torqe.y + ", z: " + dynamicSetpoint.torqe.z);
+
+    //Something seems to be wrong, i dont know why. This remapping seems to fix the issue.
+    /*Vector<> direction;
+    direction.z = directionBuf.z;
+    direction.x = -directionBuf.y;
+    direction.y = directionBuf.x;*/
+
+    //Serial.println(String("Direction: x: ") + direction.x + ", y: " + direction.y + ", z: " + direction.z + ", force: " + force);
+
+    //direction = Vector<>(0,0,1); //Uncomment this for yaw testing.
+
+    //TVC adjustment scalers.
+    const float yawTorqeScaler = 10.0; //Used for adjusting yaw torqe.
+    const float angleScaler = 1.0; //Used to scale TVC angle. Some systems like fins need to be adjusted
+
+    //calculate TVC angles
+    float TVC1, TVC2, TVC3, TVC4;
+    float twist = -constrain(dynamicSetpoint.torqe.z*yawTorqeScaler/angleScaler/force, -45*DEGREES, 45*DEGREES);
+    getTVCAngles(direction, twist, TVC1, TVC2, TVC3, TVC4);
+
+    TVCServo1_.setAngle(TVC1*angleScaler);
+    TVCServo2_.setAngle(TVC2*angleScaler);
+    TVCServo3_.setAngle(TVC3*angleScaler);
+    TVCServo4_.setAngle(TVC4*angleScaler);
+
+    /*TVCServo1_.setAngle(0*DEGREES);
+    TVCServo2_.setAngle(0*DEGREES);
+    TVCServo3_.setAngle(0*DEGREES);
+    TVCServo4_.setAngle(90*DEGREES);*/
+
+    flapULControl_.setPosition(90*DEGREES);
+    flapURControl_.setPosition(90*DEGREES);
+    flapDRControl_.setPosition(90*DEGREES);
+    flapDLControl_.setPosition(90*DEGREES);
+
+
+    //force = force/MAX_TVC_FORCE;
+
+    //force = min(force, 0);
+
+    //Serial.println(force);
+
+    force = dynamicSetpoint.force.z;
+
+    force = max(force, float(0));
+
+    //Serial.println(force);
+
+    motorCW_.setChannel(force/MAX_TVC_FORCE);
+    motorCCW_.setChannel(force/MAX_TVC_FORCE);
 
 }
 

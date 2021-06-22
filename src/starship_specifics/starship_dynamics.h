@@ -46,6 +46,18 @@
 #define STARSHIP_ACTUATORMOTORCW 8
 #define STARSHIP_ACTUATORMOTORCCW 9
 
+//Starship measurements
+//Top flaps distance from CG in z direction
+#define TOP_FLAP_Z_FROM_CG 0.5
+//Bottom flaps distance from CG in z direction.
+#define BOTTOM_FLAP_Z_FROM_CG 0.3
+//Flap distance from CG to side
+#define FLAP_XY_FROM_CG 0.1
+//Area of top flaps
+#define TOP_FLAP_AREA 7.69e-3
+//Area of bottom flaps
+#define BOTTOM_FLAP_AREA 12.15e-3
+
 
 
 class StarshipDynamics: public Dynamics_Interface, public Module_Abstract, public Task_Abstract {
@@ -60,6 +72,7 @@ public:
     StarshipDynamics(Control_Interface* controlModule, Navigation_Interface* navigationModule) : Task_Abstract(1000, eTaskPriority_t::eTaskPriority_High, true) {
         controlModule_ = controlModule;
         navigationModule_ = navigationModule;
+        navigationData_ = navigationModule->getNavigationDataPointer();
     }
 
     /**
@@ -185,6 +198,18 @@ public:
      * Checks if module is ready. Should only return true if all actuators are in position and ready to follow commands.
      */
     eActuatorStatus_t getActuatorStatus() {return actuatorStatus_;}
+
+    /**
+     * Tells dynamics to use flaps.
+     * @param enable True to use flaps. Defaults to true.
+     */
+    void enableFlaps(const bool &enable = true) {enableFlaps_ = enable;}
+
+    /**
+     * Tells dynamics to use TVC.
+     * @param enable True to use TVC. Defaults to true.
+     */
+    void enableTVC(const bool &enable = true) {enableTVC_ = enable;}
     
 
 private:
@@ -202,6 +227,7 @@ private:
 
     //Points to navigation data container.
     Navigation_Interface* navigationModule_;
+    NavigationData* navigationData_;
 
     //When true then start tesing all actuators. Can be set to true by module when testing is finished.
     bool actuatorTesting_ = false;
@@ -211,6 +237,10 @@ private:
 
     //Contains actuator manual raw setpoints. Should only be used when in manual mode.
     ActuatorSetting actuatorManualSetpoint_;
+
+    //If true then disable motors and TVC and use flaps
+    bool enableFlaps_ = false;
+    bool enableTVC_ = true;
 
     //TVC servo in X+
     PPMChannel TVCServo1_ = PPMChannel(TVC_SERVO_PIN_1, ePPMProtocol_t::ePPMProtocol_Standard_1000us, 0, -1);
@@ -253,7 +283,21 @@ private:
 
 
     void getTVCAngles(const Vector<> &direction, const float &twist, float &tvc1, float &tvc2, float &tvc3, float &tvc4);
-    
+
+    DynamicData tvcDynamicsCalculation(const DynamicData &currentDynamics);
+
+    DynamicData flapsDynamicsCalculation(const DynamicData &currentDynamics);
+
+    //Used for calculating optimal angle of flaps.
+    float getAngle(const float &fx, const float &fy, const float &windSpeed, const float &airDensity, const float &dragCoefficient, const float &flapArea) {
+        float fv = 0.5*airDensity*dragCoefficient*windSpeed*windSpeed*flapArea;
+        if (fv < 0.00001f) return 90*DEGREES;
+        float fyTheta = 1.13f-fy/fv;
+        float fxTheta = -fx/fv + 0.38;
+        if (fxTheta >= 0) fxTheta = sqrt(abs(fxTheta)) + PI/5;
+        else fxTheta = -sqrt(abs(fxTheta)) + PI/5;
+        return fxTheta;
+    }
     
 };
 

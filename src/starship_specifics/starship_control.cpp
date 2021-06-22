@@ -5,6 +5,10 @@
 
 void StarshipControl::thread() {
 
+    float dTime = float(micros() - lastLoopTimestamp_)/1000000.0f;
+    lastLoopTimestamp_ = micros();
+
+
     //Position control section
     //controlOutput_.force.x = 0;
     //controlOutput_.force.y = 0;
@@ -15,16 +19,82 @@ void StarshipControl::thread() {
     {   
         
         //calculate error
-        Vector<> error = controlSetpoint_->position - navigationData_->position;
-        error.x = 0;
-        error.y = 0;
+        Vector<> positionControllerOutput = 0;
+        Vector<> positionError = controlSetpoint_->position - navigationData_->position;
+
+
+        //Calculate Velocity I term
+        positionIValue_ += positionIValue_*positionIF_*dTime;
+
+        //Calculate output for limiting
+        positionControllerOutput = positionIValue_ + positionError*positionPF_ - navigationData_->velocity*positionDF_;
+
+        //Anti windup for output
+        if (positionControllerOutput.x > positionLimit_.x) {
+            positionIValue_.x -= positionControllerOutput.x - positionLimit_.x; //Remove saturation from I according to overthreshold
+            positionIValue_.x = max(positionIValue_.x, 0.0f); //Make sure not to remove so much that it goes negative
+        } else if (positionControllerOutput.x < -positionLimit_.x) {
+            positionIValue_.x -= positionControllerOutput.x + positionLimit_.x; //Remove saturation from I according to overthreshold
+            positionIValue_.x = min(positionIValue_.x, 0.0f); //Make sure not to remove so much that it goes negative
+        }
+        if (positionControllerOutput.y > positionLimit_.y) {
+            positionIValue_.y -= positionControllerOutput.y - positionLimit_.y; //Remove saturation from I according to overthreshold
+            positionIValue_.y = max(positionIValue_.y, 0.0f); //Make sure not to remove so much that it goes negative
+        } else if (positionControllerOutput.y < -positionLimit_.y) {
+            positionIValue_.y -= positionControllerOutput.y + positionLimit_.y; //Remove saturation from I according to overthreshold
+            positionIValue_.y = min(positionIValue_.y, 0.0f); //Make sure not to remove so much that it goes negative
+        }
+        if (positionControllerOutput.z > positionLimit_.z) {
+            positionIValue_.z -= positionControllerOutput.z - positionLimit_.z; //Remove saturation from I according to overthreshold
+            positionIValue_.z = max(positionIValue_.z, 0.0f); //Make sure not to remove so much that it goes negative
+        } else if (positionControllerOutput.z < -positionLimit_.z) {
+            positionIValue_.z -= positionControllerOutput.z + positionLimit_.z; //Remove saturation from I according to overthreshold
+            positionIValue_.z = min(positionIValue_.z, 0.0f); //Make sure not to remove so much that it goes negative
+        }
+
+        //Calculate new output
+        positionControllerOutput = positionIValue_ + positionError*positionPF_ - navigationData_->velocity*positionDF_;
+
+
+        //Velocity controller
+        Vector<> velocityControllerOutput = 0;
+    	Vector<> velocityError = positionControllerOutput + controlSetpoint_->velocity - navigationData_->velocity;
+
+        //Calculate Velocity I term
+        velocityIValue_ += velocityError*velocityIF_*dTime;
+
+        //Calculate output for limiting
+        velocityControllerOutput = velocityIValue_ + velocityError*velocityPF_ - navigationData_->linearAcceleration*velocityDF_;
+
+        //Anti windup for output
+        if (velocityControllerOutput.x > velocityLimit_.x) {
+            velocityIValue_.x -= velocityControllerOutput.x - velocityLimit_.x; //Remove saturation from I according to overthreshold
+            velocityIValue_.x = max(velocityIValue_.x, 0.0f); //Make sure not to remove so much that it goes negative
+        } else if (velocityControllerOutput.x < -velocityLimit_.x) {
+            velocityIValue_.x -= velocityControllerOutput.x + velocityLimit_.x; //Remove saturation from I according to overthreshold
+            velocityIValue_.x = min(velocityIValue_.x, 0.0f); //Make sure not to remove so much that it goes negative
+        }
+        if (velocityControllerOutput.y > velocityLimit_.y) {
+            velocityIValue_.y -= velocityControllerOutput.y - velocityLimit_.y; //Remove saturation from I according to overthreshold
+            velocityIValue_.y = max(velocityIValue_.y, 0.0f); //Make sure not to remove so much that it goes negative
+        } else if (velocityControllerOutput.y < -velocityLimit_.y) {
+            velocityIValue_.y -= velocityControllerOutput.y + velocityLimit_.y; //Remove saturation from I according to overthreshold
+            velocityIValue_.y = min(velocityIValue_.y, 0.0f); //Make sure not to remove so much that it goes negative
+        }
+        if (velocityControllerOutput.z > velocityLimit_.z) {
+            velocityIValue_.z -= velocityControllerOutput.z - velocityLimit_.z; //Remove saturation from I according to overthreshold
+            velocityIValue_.z = max(velocityIValue_.z, 0.0f); //Make sure not to remove so much that it goes negative
+        } else if (velocityControllerOutput.z < -velocityLimit_.z) {
+            velocityIValue_.z -= velocityControllerOutput.z + velocityLimit_.z; //Remove saturation from I according to overthreshold
+            velocityIValue_.z = min(velocityIValue_.z, 0.0f); //Make sure not to remove so much that it goes negative
+        }
+
+        //Calculate new output
+        velocityControllerOutput = velocityIValue_ + velocityError*velocityPF_ - navigationData_->linearAcceleration*velocityDF_;
 
         
-        //calculate force
-        Vector<> forceBuf = error*positionPF_ - navigationData_->velocity*velocityPF_;
-        
         //Include external forces e.g. gravity
-        forceBuf += Vector<>(0,0,9.81)*1.2f;
+        Vector<> forceBuf = velocityControllerOutput + Vector<>(0,0,9.81)*1.0f;
 
         //Calulate rotation
         Vector<> rotAxis = Vector<>(0,0,1).cross(forceBuf).normalize();
@@ -44,6 +114,17 @@ void StarshipControl::thread() {
 
         //Update attitude setpoint
         controlSetpoint_->attitude = rotation;
+
+        //controlSetpoint_->attitude = Quaternion<>(Vector<>(0,1,0), 90*DEGREES);
+
+        //Serial.println(controlSetpoint_->attitude.toString());
+
+        
+        //float angle; Vector<> axis;
+
+        //rotation.getAxisAngle(axis, angle);
+        //Serial.println(String("Angle: ") + angle/DEGREES + ", axis: " + axis.toString());
+
 
     }
 
@@ -219,7 +300,7 @@ void StarshipControl::thread() {
 
         if (setpoint.attitudeControlMode == eControlMode_t::eControlMode_Position || setpoint.attitudeControlMode == eControlMode_t::eControlMode_Velocity_Position || setpoint.attitudeControlMode == eControlMode_t::eControlMode_Acceleration_Velocity_Position) {
 
-            Vector<> error = (setpoint.attitude*navigationData_->attitude.copy().conjugate()).toVector(); //Error is calculated here already in local coordinate system.
+            Vector<> error = navigationData_->attitude.copy().conjugate().rotateVector((setpoint.attitude.normalize(true)^navigationData_->attitude.copy().conjugate().normalize(true)).normalize(true).toVector()); //Error is calculated here already in local coordinate system.
 
             //Serial.println(String("Error: x: ") + error.x + ", y: " + error.y + ", z: " + error.z);
 
@@ -249,7 +330,7 @@ void StarshipControl::thread() {
                 attitudeIValue_.z = min(attitudeIValue_.z, 0.0f); //Make sure not to remove so much that it goes negative
             }
 
-            attitudeOutput = error.compWiseMulti(attitudePF_) + (setpoint.angularRate - navigationData_->angularRate).compWiseMulti(attitudeDF_) + attitudeIValue_; //Recalculate new output
+            attitudeOutput = error.compWiseMulti(attitudePF_) + navigationData_->attitude.rotateVector(setpoint.angularRate - navigationData_->angularRate).compWiseMulti(attitudeDF_) + attitudeIValue_; //Recalculate new output
 
             //Constrain output
             attitudeOutput.x = constrain(attitudeOutput.x, -attitudeLimit_.x, attitudeLimit_.x);

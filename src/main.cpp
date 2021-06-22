@@ -12,7 +12,7 @@
 
 #define HEIGHT_LIMIT 50
 #define DISTANCE_LIMIT 50
-#define ANGLE_LIMIT (90.0f*DEGREES)
+#define ANGLE_LIMIT (120.0f*DEGREES)
 
 
 EEPROM_Teensy eeprom(1);
@@ -35,7 +35,7 @@ StarshipDynamics dynamicsModule(&controlModule, &navigationmodule);
 
 Starship vehicle(&guidanceModule, &navigationmodule, &controlModule, &dynamicsModule);
 
-
+bool homeSet = false;
 
 uint32_t packetsCounter = 0;
 uint32_t packetsSent = 0;
@@ -136,9 +136,14 @@ void vehicleModeSetPacketEventHandler() {
     if (!commsPort.getMessage(&message)) return;
 
     eVehicleMode_t mode = message.getVehicleMode();
+
+    //Serial.println(String("Got mode packet: ") + mode);
+
+    disarmLock = false;
     
     if (mode == eVehicleMode_t::eVehicleMode_Arm && !disarmLock) {
         vehicle.armVehicle();
+        homeSet = true;
     } else if (mode != eVehicleMode_t::eVehicleMode_Arm) {
         //Serial.println(String("Disarm ") + micros());
         vehicle.disarmVehicle();
@@ -152,7 +157,7 @@ void vehicleModeSetPacketEventHandler() {
 class Observer: public Task_Abstract {
 public:
 
-    Observer() : Task_Abstract(20, eTaskPriority_t::eTaskPriority_Middle, true) {}
+    Observer() : Task_Abstract(100, eTaskPriority_t::eTaskPriority_Realtime, true) {}
 
     void thread() {
 
@@ -175,12 +180,26 @@ public:
         //Serial.println(String(", Angular rate: x: ") + navigationmodule.getNavigationData().angularRate.x + "+-" + navigationmodule.getNavigationData().angularRateError.x + ", y: " + navigationmodule.getNavigationData().angularRate.y + "+-" + navigationmodule.getNavigationData().angularRateError.y + ", z: " + navigationmodule.getNavigationData().angularRate.z + "+-" + navigationmodule.getNavigationData().angularRateError.z);
         //Serial.println(String(" Absolute: lat: ") + navigationmodule.getNavigationData().absolutePosition.latitude + " , long: " + navigationmodule.getNavigationData().absolutePosition.longitude + ", alt: " + navigationmodule.getNavigationData().absolutePosition.height + ", pos rate: " + gnss.positionRate());
         //Serial.println(String("GNSS status: ") + deviceStatusToString(gnss.getModuleStatus()) + String(", sats: ") + gnss.getNumSatellites() + " , rate: " + gnss.positionRate() + " , lock valid: " + (gnss.getGNSSLockValid() ? "true":"false"));
-        Serial.println(String("Hori acc: ") + gnss.getPositionAccuracy() + ", virt: " + gnss.getAltitudeAccuracy());
+        //Serial.println(String("Hori acc: ") + gnss.getPositionAccuracy() + ", virt: " + gnss.getAltitudeAccuracy());
 
         //Serial.println(String("IMU gyro: ") + IMU.gyroRate() + ", accel: " + IMU.accelRate());
 
+        Serial.println(String("") + navigationmodule.getNavigationData().position.z + "  " + navigationmodule.getNavigationData().velocity.z + " " + constrain(navigationmodule.getNavigationData().acceleration.z, -4, 4));
+
+        /*Serial.print(navigationmodule.getNavigationData().velocity.z);
+        Serial.print(" ");
+        Serial.println(navigationmodule.getNavigationData().position.z);*/
+
+        //Serial.println(String("Vehicle mode: ") + vehicle.getVehicleData().vehicleMode);
+
+        /*KraftMessageStringPacket message;
+
+        message.setString((String("") + dynamicsModule.getForce().toString()).c_str());
+
+        commsPort.sendMessage(&message, eKraftPacketNodeID_t::eKraftPacketNodeID_broadcast);*/
+
         //Checks for flight profile safety.
-        if (navigationmodule.getNavigationData().position.z > HEIGHT_LIMIT) {
+        if (navigationmodule.getNavigationData().position.z > HEIGHT_LIMIT && homeSet) {
             vehicle.disarmVehicle();
             disarmLock = true;
         }
@@ -188,7 +207,7 @@ public:
         Vector<> distanceVec = navigationmodule.getNavigationData().position;
         distanceVec.z = 0;
 
-        if (distanceVec.magnitude() > DISTANCE_LIMIT) {
+        if (distanceVec.magnitude() > DISTANCE_LIMIT && homeSet) {
             vehicle.disarmVehicle();
             disarmLock = true;
         }
@@ -275,8 +294,8 @@ public:
 
         if (commsPort.networkBusy()) return;
 
-        //KraftMessageGNSSData gnssMessage(navigationmodule.getNavigationData().absolutePosition, gnss.getNumSatellites());
-        //commsPort.sendMessage(&gnssMessage, eKraftPacketNodeID_t::eKraftPacketNodeID_broadcast);
+        KraftMessageGNSSData gnssMessage(navigationmodule.getNavigationData().absolutePosition, gnss.getNumSatellites());
+        commsPort.sendMessage(&gnssMessage, eKraftPacketNodeID_t::eKraftPacketNodeID_broadcast);
 
     }
 
@@ -315,6 +334,9 @@ void setup() {
     
 
     guidanceModule.setPosition(Vector<>(0,0,2));
+
+    //dynamicsModule.enableFlaps();
+    //dynamicsModule.enableTVC(false);
 
 }
 

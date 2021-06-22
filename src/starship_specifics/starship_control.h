@@ -160,6 +160,8 @@ private:
 
     float vehicleMass_ = 1.0;
 
+    uint32_t lastLoopTimestamp_ = 0;
+
     //P factor for angular acceleration 
     Vector<> angAccelPF_ = 0;
     //I factor for angular acceleration 
