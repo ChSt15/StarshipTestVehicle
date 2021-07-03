@@ -3,17 +3,19 @@
 
 
 
-#include "lib/Simple-Schedule/src/task_autorun_class.h"
+#include "KraftKontrol/utils/Simple-Schedule/task_autorun_class.h"
 
-#include "data_containers/navigation_data.h"
+#include "KraftKontrol/data_containers/navigation_data.h"
 
-#include "vehicle/vehicle_interface.h"
+#include "KraftKontrol/vehicle/vehicle_interface.h"
 
-#include "modules/navigation_modules/navigation_complementary.h"
-#include "modules/guidance_modules/guidance_flybywire.h"
+#include "KraftKontrol/modules/navigation_modules/navigation_complementary.h"
+#include "KraftKontrol/modules/guidance_modules/guidance_flybywire.h"
 
 #include "starship_dynamics.h"
 #include "starship_control.h"
+
+
 
 
 

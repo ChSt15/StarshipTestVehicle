@@ -2,11 +2,10 @@
 
 
 
-
 void StarshipControl::thread() {
 
-    float dTime = float(micros() - lastLoopTimestamp_)/1000000.0f;
-    lastLoopTimestamp_ = micros();
+    float dTime = float(NOW() - lastLoopTimestamp_)/SECONDS;
+    lastLoopTimestamp_ = NOW();
 
 
     //Position control section

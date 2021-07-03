@@ -5,9 +5,9 @@
 
 #include "starship_specifics/starship.h"
 
-#include "modules/sensor_modules/magnetometer_modules/hmc5883_driver.h"
+#include "KraftKontrol/modules/sensor_modules/magnetometer_modules/hmc5883_driver.h"
 
-#include "modules/eeprom_hal_modules/eeprom_hal_teensy.h"
+#include "KraftKontrol/modules/eeprom_hal_modules/eeprom_hal_teensy.h"
 
 
 #define HEIGHT_LIMIT 50
@@ -46,7 +46,6 @@ bool disarmLock = false;
 
 
 void radioControlPacketEventHandler() {
-
 
     KraftMessageRCChannels message;
 

@@ -3,16 +3,18 @@
 
 
 
-#include "lib/Simple-Schedule/src/task_autorun_class.h"
+#include "KraftKontrol/utils/Simple-Schedule/task_autorun_class.h"
 
-#include "modules/module_abstract.h"
+#include "KraftKontrol/modules/module_abstract.h"
 
-#include "data_containers/control_data.h"
-#include "data_containers/navigation_data.h"
-#include "data_containers/vehicle_data.h"
+#include "KraftKontrol/data_containers/control_data.h"
+#include "KraftKontrol/data_containers/navigation_data.h"
+#include "KraftKontrol/data_containers/vehicle_data.h"
 
-#include "modules/control_modules/control_interface.h"
-#include "modules/navigation_modules/navigation_interface.h"
+#include "KraftKontrol/modules/control_modules/control_interface.h"
+#include "KraftKontrol/modules/navigation_modules/navigation_interface.h"
+
+#include "KraftKontrol.h"
 
 
 class StarshipControl: public Control_Interface, public Module_Abstract, public Task_Abstract {
