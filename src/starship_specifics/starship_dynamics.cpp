@@ -227,7 +227,7 @@ void StarshipDynamics::thread() {
 DynamicData StarshipDynamics::flapsDynamicsCalculation(const DynamicData &currentDynamics) {
 
     
-    DynamicData dynamicSetpoint = controlModule_->getDynamicsOutput();
+    const DynamicData& dynamicSetpoint = controlModule_->getDynamicsOutput();
 
     //Calculate speed for flaps
     float windSpeed = Vector<>(0,0,19).magnitude();// (navigationData_->velocity.getProjectionOn(navigationData_->attitude.rotateVector(Vector<>(0,0,1)))).magnitude();

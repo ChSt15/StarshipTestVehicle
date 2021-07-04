@@ -27,15 +27,12 @@ public:
      * @param priority is the priority the module will have.
      */
     StarshipControl(Guidance_Interface* guidanceModule, Navigation_Interface* navigationModule) : Task_Abstract(4000, eTaskPriority_t::eTaskPriority_High, true) {
-        controlSetpoint_ = guidanceModule->getControlSetpointPointer();
-        navigationData_ = navigationModule->getNavigationDataPointer();
+        setGuidanceModule(guidanceModule);
+        setNavigationModule(navigationModule);
     }
 
     /**
      * This is where all calculations are done.
-     *
-     * @param values none.
-     * @return none.
      */
     void thread();
 
@@ -59,13 +56,17 @@ public:
      * Sets the control modules guidance module.
      * @param guidanceModule Pointer to module to use.
      */
-    inline void setGuidanceModule(Guidance_Interface* guidanceModule) {controlSetpoint_ = guidanceModule->getControlSetpointPointer();}
+    inline void setGuidanceModule(Guidance_Interface* guidanceModule) {
+        guidanceSub_.subscribe(&guidanceModule->getControlSetpointTopic());
+    }
 
     /**
      * Sets the control modules navigation module.
      * @param navigationModule Pointer to module to use.
      */
-    inline void setGuidanceModule(Navigation_Interface* navigationModule) {navigationData_ = navigationModule->getNavigationDataPointer();}
+    inline void setNavigationModule(Navigation_Interface* navigationModule) {
+        navigationSub_.subscribe(&navigationModule->getNavigationDataTopic());
+    }
 
     /**
      * Sets the control factor.
@@ -135,28 +136,11 @@ public:
      */
     void setPositionPIDFactors(const Vector<> &factorP = 0, const Vector<> &factorI = 0, const Vector<> &factorD = 0, const Vector<> &limit = 1, const bool &passThrough = false) {positionPF_ = factorP; positionIF_ = factorI; positionDF_ = factorD; positionLimit_ = limit, positionPassThrough_ = passThrough;}
 
-    /**
-     * Returns the kinematics the system needs to achieve the desired
-     * guidance inputs.
-     *
-     * @param values none.
-     * @return kinematicSetpoint.
-     */
-    DynamicData getDynamicsOutput() {return controlOutput_;};
-
-    /**
-     * Returns the a pointer to a struct with the kinematics the system 
-     * needs to achieve the desired guidance inputs.
-     *
-     * @param values none.
-     * @return kinematicSetpoint pointer.
-     */
-    DynamicData* getDynamicsOutputPointer() {return &controlOutput_;}
 
 private:
 
-    ControlData* controlSetpoint_;
-    NavigationData* navigationData_;
+    Simple_Subscriber<ControlData> guidanceSub_;
+    Simple_Subscriber<NavigationData> navigationSub_;
 
     DynamicData controlOutput_;
 

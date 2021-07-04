@@ -22,6 +22,8 @@
 
 #include "starship_connections_v_1_0.h"
 
+#include "KraftKontrol/utils/topic_subscribers.h"
+
 
 //Flap servo accel and velocity maximums
 #define FLAP_MAX_VELOCITY 5
@@ -72,7 +74,8 @@ public:
     StarshipDynamics(Control_Interface* controlModule, Navigation_Interface* navigationModule) : Task_Abstract(1000, eTaskPriority_t::eTaskPriority_High, true) {
         controlModule_ = controlModule;
         navigationModule_ = navigationModule;
-        navigationData_ = navigationModule->getNavigationDataPointer();
+        navigationDataSub_.subscribe(&navigationModule->getNavigationDataTopic());
+        controlOutputSub_.subscribe(&controlModule->getControlDataTopic());
     }
 
     /**
@@ -93,18 +96,7 @@ public:
      *
      * @return DynamicData.
      */
-    DynamicData getDynamicSetpoint() {return controlModule_->getDynamicsOutput();}
-
-    /**
-     * Returns a pointer towards a struct containing the forces 
-     * the acuators need to produce in total on the vehicle in 
-     * order to achieve the kinematic setpoints. 
-     * 
-     * Using pointers allows for data linking.
-     *
-     * @return DynamicData pointer.
-     */
-    DynamicData* getDynamicSetpointPointer() {return controlModule_->getDynamicsOutputPointer();}
+    DynamicData& getDynamicSetpoint() {return controlModule_->getDynamicsOutput();}
 
     /**
      * Tells dynamics module to test all actuators. 
@@ -224,10 +216,11 @@ private:
 
     //Points to dynamics setpoint data container.
     Control_Interface* controlModule_;
+    Simple_Subscriber<DynamicData> controlOutputSub_;
 
     //Points to navigation data container.
     Navigation_Interface* navigationModule_;
-    NavigationData* navigationData_;
+    Simple_Subscriber<NavigationData> navigationDataSub_;
 
     //When true then start tesing all actuators. Can be set to true by module when testing is finished.
     bool actuatorTesting_ = false;
