@@ -285,7 +285,7 @@ private:
     float getAngle(const float &fx, const float &fy, const float &windSpeed, const float &airDensity, const float &dragCoefficient, const float &flapArea) {
         float fv = 0.5*airDensity*dragCoefficient*windSpeed*windSpeed*flapArea;
         if (fv < 0.00001f) return 90*DEGREES;
-        float fyTheta = 1.13f-fy/fv;
+        //float fyTheta = 1.13f-fy/fv;
         float fxTheta = -fx/fv + 0.38;
         if (fxTheta >= 0) fxTheta = sqrt(abs(fxTheta)) + PI/5;
         else fxTheta = -sqrt(abs(fxTheta)) + PI/5;

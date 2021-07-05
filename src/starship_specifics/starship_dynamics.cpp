@@ -298,7 +298,7 @@ DynamicData StarshipDynamics::tvcDynamicsCalculation(const DynamicData &currentD
     dynamicSetpoint.torqe -= currentDynamics.torqe;
 
     float force = 0;
-    Vector<> directionBuf = Vector<>(0,0,1);
+    //Vector<> directionBuf = Vector<>(0,0,1);
     Vector<> direction;
 
     //TVCCalculator_.dynamicsSetpoint(dynamicSetpoint);
@@ -369,6 +369,8 @@ DynamicData StarshipDynamics::tvcDynamicsCalculation(const DynamicData &currentD
 
     motorCW_.setChannel(force/MAX_TVC_FORCE);
     motorCCW_.setChannel(force/MAX_TVC_FORCE);
+
+    return dynamicSetpoint;
 
 }
 
