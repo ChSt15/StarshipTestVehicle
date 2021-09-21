@@ -208,8 +208,8 @@ void StarshipDynamics::thread() {
 
         }
 
-        motorCW_.setChannel(-0.0);
-        motorCCW_.setChannel(-0.0);
+        motorCW_.setChannel(0.0);
+        motorCCW_.setChannel(0.0);
 
     }
 
@@ -227,7 +227,7 @@ void StarshipDynamics::thread() {
 DynamicData StarshipDynamics::flapsDynamicsCalculation(const DynamicData &currentDynamics) {
 
     
-    const DynamicData& dynamicSetpoint = controlModule_->getDynamicsOutput();
+    const DynamicData& dynamicSetpoint = controlOutputSub_.getItem();
 
     //Calculate speed for flaps
     float windSpeed = Vector<>(0,0,19).magnitude();// (navigationData_->velocity.getProjectionOn(navigationData_->attitude.rotateVector(Vector<>(0,0,1)))).magnitude();
@@ -243,7 +243,7 @@ DynamicData StarshipDynamics::flapsDynamicsCalculation(const DynamicData &curren
     float d = TOP_FLAP_Z_FROM_CG;
     float b = FLAP_XY_FROM_CG;
 
-    //Some pretty big matrix calcuation to get the forces of each flap
+    //Some big matrix calculation to get the forces of each flap
 
     float d2p2l = 1/(2*d+2*l); // Helper to optimise execution speed
 
@@ -262,7 +262,7 @@ DynamicData StarshipDynamics::flapsDynamicsCalculation(const DynamicData &curren
     float bl = getAngle(f3x, f3y, windSpeed, 1.225f, 2.0, BOTTOM_FLAP_AREA);
     float br = getAngle(f4x, -f4y, windSpeed, 1.225f, 2.0, BOTTOM_FLAP_AREA);
 
-    Serial.println(String("angles: tl: ") + tl + ", tr: " + tr + ", bl: " + bl + ", br: " + br);
+    //Serial.println(String("angles: tl: ") + tl + ", tr: " + tr + ", bl: " + bl + ", br: " + br);
 
 
     //Update actuators
@@ -292,7 +292,7 @@ DynamicData StarshipDynamics::flapsDynamicsCalculation(const DynamicData &curren
 
 DynamicData StarshipDynamics::tvcDynamicsCalculation(const DynamicData &currentDynamics) {
 
-    DynamicData dynamicSetpoint = controlModule_->getDynamicsOutput();
+    DynamicData dynamicSetpoint = controlOutputSub_.getItem();
 
     dynamicSetpoint.force -= currentDynamics.force;
     dynamicSetpoint.torqe -= currentDynamics.torqe;

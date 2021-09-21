@@ -5,8 +5,6 @@
 
 #include "KraftKontrol/utils/Simple-Schedule/task_autorun_class.h"
 
-#include "KraftKontrol/modules/module_abstract.h"
-
 #include "KraftKontrol/data_containers/control_data.h"
 #include "KraftKontrol/data_containers/navigation_data.h"
 #include "KraftKontrol/data_containers/vehicle_data.h"
@@ -14,10 +12,11 @@
 #include "KraftKontrol/modules/control_modules/control_interface.h"
 #include "KraftKontrol/modules/navigation_modules/navigation_interface.h"
 
-#include "KraftKontrol.h"
+#include "KraftKontrol/utils/topic_subscribers.h"
 
 
-class StarshipControl: public Control_Interface, public Module_Abstract, public Task_Abstract {
+
+class StarshipControl: public Control_Interface, public Task_Abstract {
 public:
 
     /**
@@ -26,7 +25,7 @@ public:
      * @param rate is the rate at which it will be ran at.
      * @param priority is the priority the module will have.
      */
-    StarshipControl(Guidance_Interface* guidanceModule, Navigation_Interface* navigationModule) : Task_Abstract(4000, eTaskPriority_t::eTaskPriority_High, true) {
+    StarshipControl(Guidance_Interface& guidanceModule, Navigation_Interface& navigationModule) : Task_Abstract(4000, eTaskPriority_t::eTaskPriority_High, true) {
         setGuidanceModule(guidanceModule);
         setNavigationModule(navigationModule);
     }
@@ -54,18 +53,18 @@ public:
 
     /**
      * Sets the control modules guidance module.
-     * @param guidanceModule Pointer to module to use.
+     * @param guidanceModule Reference to module to use.
      */
-    inline void setGuidanceModule(Guidance_Interface* guidanceModule) {
-        guidanceSub_.subscribe(&guidanceModule->getControlSetpointTopic());
+    inline void setGuidanceModule(Guidance_Interface& guidanceModule) {
+        guidanceSub_.subscribe(guidanceModule.getControlSetpointTopic());
     }
 
     /**
      * Sets the control modules navigation module.
-     * @param navigationModule Pointer to module to use.
+     * @param navigationModule Reference to module to use.
      */
-    inline void setNavigationModule(Navigation_Interface* navigationModule) {
-        navigationSub_.subscribe(&navigationModule->getNavigationDataTopic());
+    inline void setNavigationModule(Navigation_Interface& navigationModule) {
+        navigationSub_.subscribe(navigationModule.getNavigationDataTopic());
     }
 
     /**

@@ -14,6 +14,8 @@ void StarshipControl::thread() {
     //controlOutput_.force.z = (1.0-navigationData.position.z)*positionPF_.z - navigationData.velocity.z*velocityPF_.z + 9.81*vehicleMass_; 
     //controlOutput_.force = navigationData.attitude.copy().conjugate().rotateVector(controlOutput_.force); //Rotate to local coordinate system
 
+    if (!navigationSub_.isValid() || !guidanceSub_.isValid()) return;
+
     NavigationData navigationData = navigationSub_.getItem();
     ControlData controlSetpoint = guidanceSub_.getItem();
 
@@ -437,8 +439,8 @@ void StarshipControl::thread() {
     
 
     //Update control output timestamp
-    controlOutput_.timestamp = micros();
+    controlOutput_.timestamp = NOW();
 
-
+    controlTopic_.publish(controlOutput_);
 
 }

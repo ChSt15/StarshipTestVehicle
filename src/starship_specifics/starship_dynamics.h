@@ -15,7 +15,6 @@
 #include "KraftKontrol/modules/dynamics_modules/dynamics_interface.h"
 #include "KraftKontrol/modules/navigation_modules/navigation_interface.h"
 #include "KraftKontrol/modules/control_modules/control_interface.h"
-#include "KraftKontrol/modules/module_abstract.h"
 
 #include "KraftKontrol/data_containers/navigation_data.h"
 #include "KraftKontrol/data_containers/dynamic_data.h"
@@ -62,7 +61,7 @@
 
 
 
-class StarshipDynamics: public Dynamics_Interface, public Module_Abstract, public Task_Abstract {
+class StarshipDynamics: public Dynamics_Interface, public Task_Abstract {
 public:
 
     /**
@@ -71,11 +70,9 @@ public:
      * @param controlModule is the module from which control data will be received.
      * @param navigationModule is the module from which navigation data will be received.
      */
-    StarshipDynamics(Control_Interface* controlModule, Navigation_Interface* navigationModule) : Task_Abstract(1000, eTaskPriority_t::eTaskPriority_High, true) {
-        controlModule_ = controlModule;
-        navigationModule_ = navigationModule;
-        navigationDataSub_.subscribe(&navigationModule->getNavigationDataTopic());
-        controlOutputSub_.subscribe(&controlModule->getControlDataTopic());
+    StarshipDynamics(Control_Interface& controlModule, Navigation_Interface& navigationModule) : Task_Abstract(1000, eTaskPriority_t::eTaskPriority_High, true) {
+        setControlModule(controlModule);
+        setNavigationModule(navigationModule);
     }
 
     /**
@@ -91,12 +88,20 @@ public:
     void init();
 
     /**
-     * Returns the forces the acuators need to produce in total
-     * on the vehicle in order to achieve the kinematic setpoints. 
-     *
-     * @return DynamicData.
+     * Sets the dynamics modules control module.
+     * @param controlModule Pointer to module to use.
      */
-    DynamicData& getDynamicSetpoint() {return controlModule_->getDynamicsOutput();}
+    void setControlModule(Control_Interface& controlModule) {
+        controlOutputSub_.subscribe(controlModule.getControlDataTopic());
+    }
+
+    /**
+     * Sets the control modules navigation module.
+     * @param navigationModule Pointer to module to use.
+     */
+    void setNavigationModule(Navigation_Interface& navigationModule) {
+        navigationDataSub_.subscribe(navigationModule.getNavigationDataTopic());
+    }
 
     /**
      * Tells dynamics module to test all actuators. 
@@ -215,11 +220,9 @@ private:
     eActuatorStatus_t actuatorStatusSetpoint_ = eActuatorStatus_t::eActuatorStatus_Disabled;
 
     //Points to dynamics setpoint data container.
-    Control_Interface* controlModule_;
     Simple_Subscriber<DynamicData> controlOutputSub_;
 
     //Points to navigation data container.
-    Navigation_Interface* navigationModule_;
     Simple_Subscriber<NavigationData> navigationDataSub_;
 
     //When true then start tesing all actuators. Can be set to true by module when testing is finished.

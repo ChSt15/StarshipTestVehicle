@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "arduino_gpio_hal": "c",
+        "arduino.h": "c",
+        "pins_arduino.h": "c",
+        "wprogram.h": "c"
+    }
+}
