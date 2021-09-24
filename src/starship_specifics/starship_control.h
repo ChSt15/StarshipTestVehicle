@@ -25,7 +25,7 @@ public:
      * @param rate is the rate at which it will be ran at.
      * @param priority is the priority the module will have.
      */
-    StarshipControl(Guidance_Interface& guidanceModule, Navigation_Interface& navigationModule) : Task_Abstract(4000, eTaskPriority_t::eTaskPriority_High, true) {
+    StarshipControl(Guidance_Interface& guidanceModule, Navigation_Interface& navigationModule) : Task_Abstract("Starship Control", 4000, eTaskPriority_t::eTaskPriority_Realtime, true) {
         setGuidanceModule(guidanceModule);
         setNavigationModule(navigationModule);
     }

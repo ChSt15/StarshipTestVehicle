@@ -19,158 +19,36 @@ KraftKommunication commsPort(radio, eKraftMessageNodeID_t::eKraftMessageNodeID_v
 
 BME280Driver barometer(BME280_NCS_PIN, &BME280_SPIBUS);
 MPU9250Driver IMU(MPU9250_INT_PIN, MPU9250_NCS_PIN, &MPU9250_SPIBUS);
-//UbloxSerialGNSS gnss(NEO_M8Q_SERIALPORT);
+UbloxSerialGNSS gnss(NEO_M8Q_SERIALPORT);
 
 I2CBusDevice_HAL magnetometerBusDevice(Wire, QMC5883Registers::QMC5883L_ADDR_DEFAULT);
 QMC5883Driver magnetometer = QMC5883Driver(magnetometerBusDevice, QMC5883Registers::QMC5883L_ADDR_DEFAULT);
 
-NavigationComplementaryFilter navigationmodule(&IMU, &IMU, &magnetometer, &barometer/*, &gnss*/);
-//GuidanceFlyByWire guidanceModule;
-//StarshipControl controlModule(guidanceModule, navigationmodule);
-//StarshipDynamics dynamicsModule(controlModule, navigationmodule);
+NavigationComplementaryFilter navigationmodule(&IMU, &IMU, &magnetometer, &barometer, &gnss);
+GuidanceFlyByWire guidanceModule;
+StarshipControl controlModule(guidanceModule, navigationmodule);
+StarshipDynamics dynamicsModule(controlModule, navigationmodule);
 
-//Starship vehicle(&guidanceModule, &navigationmodule, &controlModule, &dynamicsModule);
-
-bool homeSet = false;
-
-uint32_t packetsCounter = 0;
-uint32_t packetsSent = 0;
-
-
-bool disarmLock = false;
+Starship vehicle(&guidanceModule, &navigationmodule, &controlModule, &dynamicsModule);
 
 
 
-void radioControlPacketEventHandler() {
-    /*
-    KraftMessageRCChannels message;
-
-    if (!commsPort.getMessage(&message)) return;
-
-    int16_t channels[15];
-
-    channels[0] = message.getChannel(0);
-    channels[1] = message.getChannel(1);
-
-    float x = (float)(channels[0]-1500)/500.0*15*DEGREES;
-    float y = (float)(channels[1]-1500)/500.0*15*DEGREES;
-
-    Serial.println(String("Got rc channel: x: ") + x + ", y: " + y);
-
-    return;
-
-    if (x != 0 && y != 0) {
-
-        Vector<> rotVec = Vector<>(x, y, 0);
-
-        Quaternion<> attitude = Quaternion<>(rotVec.copy().normalize(), rotVec.magnitude());
-
-        guidanceModule.setAttitude(attitude);
-        guidanceModule.setAngularRate(Vector<>(0,0,0));
-        guidanceModule.setPosition(navigationmodule.getNavigationData().position);
-        guidanceModule.setVelocity(Vector<>(0,0,0));
-
-    }*/
-
-}
-
-
-
-void transmitterTimeoutEventHandler() {
-
-    //vehicle.disarmVehicle();
-
-    disarmLock = true;
-
-}
-
-
-
-void attitudeSetpointPacketEventHandler() {
-
-    /*
-    KraftMessageAttitudeSet message;
-
-    if (!commsPort.getMessage(&message)) return;
-
-    Quaternion<> attitudeSetpoint = message.getAttitude();
-
-    //Serial.println(String("Got attitude set: w: ") + attitudeSetpoint.w + ", x: " + attitudeSetpoint.x + ", y: " + attitudeSetpoint.y + ", z: " + attitudeSetpoint.z);
-
-    guidanceModule.setAttitude(attitudeSetpoint);
-    guidanceModule.setAngularRate(Vector<>(0,0,0));
-    guidanceModule.setPosition(navigationmodule.getNavigationData().position);
-    guidanceModule.setVelocity(Vector<>(0,0,0));
-    */
-
-}
-
-
-
-void positionSetpointPacketEventHandler() {
-
-    /*
-    KraftMessagePositionSet message;
-
-    if (!commsPort.getMessage(&message)) return;
-
-    Vector<> positionSetpoint = message.getPosition();
-
-    //Serial.println(String("Got position setpoint: ") + positionSetpoint.toString());
-
-    guidanceModule.setPosition(positionSetpoint);
-    guidanceModule.setVelocity(Vector<>(0,0,0));
-    */
-
-}
-
-
-
-void vehicleModeSetPacketEventHandler() {
-
-    /*
-    KraftMessageVehicleModeSet message;
-
-    if (!commsPort.getMessage(&message)) return;
-
-    eVehicleMode_t mode = message.getVehicleMode();
-
-    //Serial.println(String("Got mode packet: ") + mode);
-
-    disarmLock = false;
-    
-    if (mode == eVehicleMode_t::eVehicleMode_Arm && !disarmLock) {
-        vehicle.armVehicle();
-        homeSet = true;
-    } else if (mode != eVehicleMode_t::eVehicleMode_Arm) {
-        //Serial.println(String("Disarm ") + micros());
-        vehicle.disarmVehicle();
-        disarmLock = false;
-    }
-    */
-
-}
-
-
-
-extern unsigned long _heap_end;
+/*extern unsigned long _heap_end;
 extern char *__brkval;
 uint32_t FreeMem(){ // for Teensy 4.1
   char* p = (char*) malloc(10000); // size should be quite big, to avoid allocating fragment!
   free(p);
   return (char *)&_heap_end - p; // __brkval;
-}
+}*/
 
 
 
 class Observer: public Task_Abstract {
 public:
 
-    Observer() : Task_Abstract("Observer", 20, eTaskPriority_t::eTaskPriority_Middle) {}
+    Observer() : Task_Abstract("Observer", 100, eTaskPriority_t::eTaskPriority_Middle) {}
 
     void init() {
-
-        gyroSub.subscribe(IMU.getGyroTopic());
 
     }
 
@@ -188,12 +66,16 @@ public:
 
         //Serial.println(String("Modules: ") + Module_Abstract::getListExistingModules().getNumItems());
         
-        Serial.println(navigationmodule.getNavigationData().position.z);
+        //Serial.println(navigationmodule.getNavigationData().position.z);
+
+        //Serial.println(String() + "Pos: " + navigationmodule.getNavigationData().position.z*5 + " Vel: " + navigationmodule.getNavigationData().velocity.z*3 + " Acc: " + navigationmodule.getNavigationData().linearAcceleration.z/5);
+        //Serial.println(String() + String(navigationmodule.getNavigationData().position.x, 4) + "," + String(navigationmodule.getNavigationData().positionError.x, 4) + "," + String(navigationmodule.getNavigationData().position.y, 4) + "," + String(navigationmodule.getNavigationData().positionError.y, 4) + "," + String(navigationmodule.getNavigationData().position.z, 4) + "," + String(navigationmodule.getNavigationData().positionError.z, 4));
+
 
         //Serial.println(navigationmodule.getNavigationData().position.z);
         //Serial.println(IMU.gyroRate());
-        //Serial.println(String("linear accel: x: ") + navigationmodule.getNavigationData().linearAcceleration.x + ", y: " + navigationmodule.getNavigationData().linearAcceleration.x + ", z: " + navigationmodule.getNavigationData().linearAcceleration.z);
-        //Serial.print(String("speed: x: ") + navigationmodule.getNavigationData().velocity.x + "+-" + navigationmodule.getNavigationData().velocityError.x + ", y: " + navigationmodule.getNavigationData().velocity.y + "+-" + navigationmodule.getNavigationData().velocityError.y + ", z: " + navigationmodule.getNavigationData().velocity.z + "+-" + navigationmodule.getNavigationData().velocityError.z);
+        //Serial.println(String("linear accel: x: ") + navigationmodule.getNavigationData().linearAcceleration.x + ",\ty: " + navigationmodule.getNavigationData().linearAcceleration.x + ", \tz: " + navigationmodule.getNavigationData().linearAcceleration.z);
+        //Serial.println(String(" Accel: x: ") + navigationmodule.getNavigationData().acceleration.x + "+-" + navigationmodule.getNavigationData().accelerationError.x + ", y: " + navigationmodule.getNavigationData().acceleration.y + "+-" + navigationmodule.getNavigationData().accelerationError.y + ", z: " + navigationmodule.getNavigationData().acceleration.z + "+-" + navigationmodule.getNavigationData().accelerationError.z);
         //Serial.println(String(" pos: x: ") + navigationmodule.getNavigationData().position.x + "+-" + navigationmodule.getNavigationData().positionError.x + ", y: " + navigationmodule.getNavigationData().position.y + "+-" + navigationmodule.getNavigationData().positionError.y + ", z: " + navigationmodule.getNavigationData().position.z + "+-" + String(navigationmodule.getNavigationData().positionError.z,6));
         //Serial.println(String(", baro Rate: ") + barometer.pressureRate());
         //Serial.println(String("att: w: ") + navigationmodule.getNavigationData().attitude.w + " , x: " + navigationmodule.getNavigationData().attitude.x + ", y: " + navigationmodule.getNavigationData().attitude.y + ", z: " + navigationmodule.getNavigationData().attitude.z + ", Calib: " + /*(magnetometer.getCalibrationStatus() == eMagCalibStatus_t::eMagCalibStatus_Calibrating ? " calibrating " : " calibrated ") + ", gnss rate: " + gnss.positionRate() + */", time: " + (double)NOW()/SECONDS + ", rate: " + IMU.gyroRate());
@@ -249,6 +131,11 @@ public:
 
         //delete[] test;
 
+        /*TelemetryMessageVelocity vecMessage;
+        vecMessage = navigationmodule.getNavigationData().angularRate;
+
+        commsPort.getBroadcastMessageTopic().publish(vecMessage);*/
+
     }
 
 
@@ -266,57 +153,65 @@ public:
 
     void thread() {
 
-        /*
-        if (commsPort.networkBusy()) return;
-
-        KraftMessageAttitudeIs attitudeMessage(navigationmodule.getNavigationData().attitude);
-        commsPort.sendMessage(&attitudeMessage, eKraftPacketNodeID_t::eKraftPacketNodeID_broadcast);
-        */
+        TelemetryMessageAttitude attitudeMessage(navigationmodule.getNavigationData().attitude);
+        commsPort.getBroadcastMessageTopic().publish(attitudeMessage);
 
     }
 
 
 };
+
 
 
 class PositionTransmitter: public Task_Abstract {
 public:
 
-    PositionTransmitter() : Task_Abstract("Position Sender", 11, eTaskPriority_t::eTaskPriority_Middle, true) {}
+    PositionTransmitter() : Task_Abstract("Position Sender", 20, eTaskPriority_t::eTaskPriority_Middle, true) {}
 
     void thread() {
 
-        /*
-        if (commsPort.networkBusy()) return;
-
-        KraftMessagePositionIs positionMessage(navigationmodule.getNavigationData().position);
-        commsPort.sendMessage(&positionMessage, eKraftPacketNodeID_t::eKraftPacketNodeID_broadcast);
-        */
+        TelemetryMessagePosition positionMessage(navigationmodule.getNavigationData().position);
+        commsPort.getBroadcastMessageTopic().publish(positionMessage);
 
     }
 
 
 };
+
+
+
+class VelocityTransmitter: public Task_Abstract {
+public:
+
+    VelocityTransmitter() : Task_Abstract("Velocity Sender", 20, eTaskPriority_t::eTaskPriority_Middle, true) {}
+
+    void thread() {
+
+        TelemetryMessageVelocity velocityMessage(navigationmodule.getNavigationData().velocity);
+        commsPort.getBroadcastMessageTopic().publish(velocityMessage);
+
+    }
+
+
+};
+
 
 
 class VehicleModeTransmitter: public Task_Abstract {
 public:
 
-    VehicleModeTransmitter() : Task_Abstract("Vehicle Mode Sender", 6, eTaskPriority_t::eTaskPriority_Middle, true) {}
+    VehicleModeTransmitter() : Task_Abstract("Vehicle Mode Sender", 5, eTaskPriority_t::eTaskPriority_Middle, true) {}
 
     void thread() {
 
-        /*
-        if (commsPort.networkBusy()) return;
-
-        KraftMessageVehicleModeIs vehicleMode(vehicle.getVehicleData().vehicleMode);
-        commsPort.sendMessage(&vehicleMode, eKraftPacketNodeID_t::eKraftPacketNodeID_broadcast);
-        */
+        TelemetryMessageVehicleModeIs vehicleMode(vehicle.getVehicleData().vehicleMode);
+        commsPort.getBroadcastMessageTopic().publish(vehicleMode);
 
     }
 
 
 };
+
 
 
 class GNSSDataTransmitter: public Task_Abstract {
@@ -339,32 +234,85 @@ public:
 };
 
 
-class PositionSetter: public Task_Abstract {
+
+class VehicleModeSetter: public Task_Abstract {
 public:
 
-    PositionSetter() : Task_Abstract("Position Setter", 1, eTaskPriority_t::eTaskPriority_Middle, 20*SECONDS) {}
+    VehicleModeSetter() : Task_Abstract("Vehicle Mode Setter", 10, eTaskPriority_t::eTaskPriority_Middle) {}
+
+    CommandMessageVehicleModeSet vehicleModeSet;
+    KraftMessage_Subscriber subr;
+
+    void init() {
+
+        subr.addReceiverMessage(vehicleModeSet);
+        subr.subscribe(commsPort.getReceivedMessageTopic());
+        subr.setTaskToResume(*this);
+
+    }
 
     void thread() {
 
-        //float error = navigationmodule.getNavigationData().positionError.magnitude();
+        if (subr.isDataNew()) {
 
-        //if (error < 4) navigationmodule.setHome(navigationmodule.getNavigationData().absolutePosition);
+            eVehicleMode_t mode = vehicleModeSet.getData(); 
 
-        if (Serial.available() || true) {
+            char modeName[20];
+            getVehicleModeString(modeName, 20, mode);
 
-            navigationmodule.setHome(navigationmodule.getNavigationData().absolutePosition);
+            //Serial.println(String("Got Mode: ") + modeName);
 
-            Serial.flush();
+            if (mode == eVehicleMode_t::eVehicleMode_Arm) {
 
-            stopTaskThreading();
+                vehicle.armVehicle();
+
+            } else if (mode == eVehicleMode_t::eVehicleMode_Disarm) {
+
+                vehicle.disarmVehicle();
+
+            }
 
         }
 
-        //stopTaskThreading();
+        if (!commsPort.getNodeStatus(eKraftMessageNodeID_t::eKraftMessageNodeID_controller)) {
+            vehicle.disarmVehicle();
+        }
+
+        if (vehicle.getVehicleData().vehicleMode == eVehicleMode_t::eVehicleMode_Arm && navigationmodule.getNavigationData().position.z > 15) vehicle.disarmVehicle();
 
     } 
 
 };
+
+
+
+class VehiclePositionSetter: public Task_Abstract {
+public:
+
+    VehiclePositionSetter() : Task_Abstract("Position Setter", 1, eTaskPriority_t::eTaskPriority_Middle) {}
+
+    CommandMessagePositionSet vehiclePosSet;
+    KraftMessage_Subscriber subr;
+
+    void init() {
+
+        subr.addReceiverMessage(vehiclePosSet);
+        subr.subscribe(commsPort.getReceivedMessageTopic());
+        subr.setTaskToResume(*this);
+
+    }
+
+    void thread() {
+
+        Vector<> pos = vehiclePosSet.getVector();
+        guidanceModule.setPosition(pos);
+
+        //Serial.println(String("Got pos: ") + pos.toString());
+
+    } 
+
+};
+
 
 
 class ImAlive: public Task_Abstract {
@@ -376,9 +324,9 @@ public:
 
         Serial.println(String("Num tasks: ") + Task_Abstract::getTaskList().getNumItems());
         Serial.println("Task usages: ");
-        Serial.println(String("Scheduler: ") + String(Task_Abstract::getSchedulerSystemUsage()*100, 2));
+        Serial.println(String("CPU Usage: ") + String(Task_Abstract::getSchedulerSystemUsage()*100.0, 2));
         for (uint32_t i = 0; i < Task_Abstract::getTaskList().getNumItems(); i++) {
-            Serial.println(String("- Task ") + (i+1) + ": Usage: " + String(Task_Abstract::getTaskList()[i]->getTaskSystemUsage()*100, 2) + ", rate: " + Task_Abstract::getTaskList()[i]->getLoopRate());
+            Serial.println(String() + "    - Usage: " + String(Task_Abstract::getTaskList()[i]->getTaskSystemUsage()*100, 2) + ", rate: " + Task_Abstract::getTaskList()[i]->getLoopRate() + "\t, Name: " + Task_Abstract::getTaskList()[i]->getTaskName());
         }
 
     }
@@ -400,15 +348,17 @@ public:
 
 
 Observer observer;
-/*AttitudeTransmitter attTransmitter;
+AttitudeTransmitter attTransmitter;
 PositionTransmitter posTransmitter;
+VelocityTransmitter velTransmitter;
 VehicleModeTransmitter modeTransmitter;
-GNSSDataTransmitter gnssTransmitter;*/
+
+VehiclePositionSetter posSetter;
+VehicleModeSetter modeSetter;
+//GNSSDataTransmitter gnssTransmitter;
 
 //ImAlive aliveThread;
 
-
-PositionSetter positionSetter;
 
 
 void setup() {
@@ -426,7 +376,7 @@ void setup() {
 
 }
 
-IntervalControl interval = 1.0f/5;
+
 
 void loop() {
 

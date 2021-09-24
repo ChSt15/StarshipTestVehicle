@@ -70,7 +70,7 @@ public:
      * @param controlModule is the module from which control data will be received.
      * @param navigationModule is the module from which navigation data will be received.
      */
-    StarshipDynamics(Control_Interface& controlModule, Navigation_Interface& navigationModule) : Task_Abstract(1000, eTaskPriority_t::eTaskPriority_High, true) {
+    StarshipDynamics(Control_Interface& controlModule, Navigation_Interface& navigationModule) : Task_Abstract("Starship Dynamics", 1000, eTaskPriority_t::eTaskPriority_Realtime, true) {
         setControlModule(controlModule);
         setNavigationModule(navigationModule);
     }

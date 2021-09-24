@@ -22,7 +22,7 @@
 class Starship: public Vehicle_Interface, Task_Abstract {
 public:
 
-    Starship(Guidance_Interface* guidancePointer, Navigation_Interface* navigationPointer, StarshipControl* controlPointer, StarshipDynamics* dynamicsPointer) : Task_Abstract(1000, eTaskPriority_t::eTaskPriority_High, true) {
+    Starship(Guidance_Interface* guidancePointer, Navigation_Interface* navigationPointer, StarshipControl* controlPointer, StarshipDynamics* dynamicsPointer) : Task_Abstract("Starship Vehicle", 1000, eTaskPriority_t::eTaskPriority_High, true) {
         guidance_ = guidancePointer;
         navigation_ = navigationPointer;
         control_ = controlPointer;
