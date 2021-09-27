@@ -6,6 +6,7 @@
 #include "starship_specifics/starship.h"
 
 #include "KraftKontrol/modules/sensor_modules/magnetometer_modules/hmc5883_driver.h"
+#include "KraftKontrol/platforms/arduino_platform/arduino_data_manager_eeprom.h"
 
 
 #define HEIGHT_LIMIT 50
@@ -13,16 +14,19 @@
 #define ANGLE_LIMIT (120.0f*DEGREES)
 
 
+DataManager_InternalEEPROM eeprom;
+
+
 SX1280Driver radio(SX1280_RFBUSY_PIN, SX1280_TXEN_PIN, SX1280_RXEN_PIN, SX1280_DIO1_PIN, SX1280_NRESET_PIN, SX1280_NSS_PIN);
 KraftKommunication commsPort(radio, eKraftMessageNodeID_t::eKraftMessageNodeID_vehicle);
 
 
 BME280Driver barometer(BME280_NCS_PIN, &BME280_SPIBUS);
-MPU9250Driver IMU(MPU9250_INT_PIN, MPU9250_NCS_PIN, &MPU9250_SPIBUS);
+MPU9250Driver IMU(MPU9250_INT_PIN, MPU9250_NCS_PIN, &MPU9250_SPIBUS, &eeprom);
 UbloxSerialGNSS gnss(NEO_M8Q_SERIALPORT);
 
 I2CBusDevice_HAL magnetometerBusDevice(Wire, QMC5883Registers::QMC5883L_ADDR_DEFAULT);
-QMC5883Driver magnetometer = QMC5883Driver(magnetometerBusDevice, QMC5883Registers::QMC5883L_ADDR_DEFAULT);
+QMC5883Driver magnetometer(magnetometerBusDevice, QMC5883Registers::QMC5883L_ADDR_DEFAULT, &eeprom);
 
 NavigationComplementaryFilter navigationmodule(&IMU, &IMU, &magnetometer, &barometer, &gnss);
 GuidanceFlyByWire guidanceModule;
@@ -49,10 +53,14 @@ public:
     Observer() : Task_Abstract("Observer", 100, eTaskPriority_t::eTaskPriority_Middle) {}
 
     void init() {
-
+        gyroSub.subscribe(IMU.getAccelTopic());
     }
 
     void thread() {
+
+        //Vector<> vec = lpf.update(gyroSub.getItem().sensorData);
+
+        //Serial.println(vec.toString(3));
 
         //Serial.println(String("IMU gyro: ") + gyroSub.getItem().sensorData.toString());
 
@@ -69,7 +77,7 @@ public:
         //Serial.println(navigationmodule.getNavigationData().position.z);
 
         //Serial.println(String() + "Pos: " + navigationmodule.getNavigationData().position.z*5 + " Vel: " + navigationmodule.getNavigationData().velocity.z*3 + " Acc: " + navigationmodule.getNavigationData().linearAcceleration.z/5);
-        //Serial.println(String() + String(navigationmodule.getNavigationData().position.x, 4) + "," + String(navigationmodule.getNavigationData().positionError.x, 4) + "," + String(navigationmodule.getNavigationData().position.y, 4) + "," + String(navigationmodule.getNavigationData().positionError.y, 4) + "," + String(navigationmodule.getNavigationData().position.z, 4) + "," + String(navigationmodule.getNavigationData().positionError.z, 4));
+        //Serial.println(String() + String(navigationmodule.getNavigationData().position.x, 4) + "," + String(1/*navigationmodule.getNavigationData().positionError.x*/, 4) + "," + String(navigationmodule.getNavigationData().position.y, 4) + "," + String(navigationmodule.getNavigationData().positionError.y, 4) + "," + String(navigationmodule.getNavigationData().position.z, 4) + "," + String(navigationmodule.getNavigationData().positionError.z, 4));
 
 
         //Serial.println(navigationmodule.getNavigationData().position.z);
@@ -141,6 +149,8 @@ public:
 
     Simple_Subscriber<SensorTimestamp<Vector<>>> gyroSub;
 
+    LowPassFilter<Vector<>> lpf = 0.05;
+
 
 };
 
@@ -149,7 +159,7 @@ public:
 class AttitudeTransmitter: public Task_Abstract {
 public:
 
-    AttitudeTransmitter() : Task_Abstract("Attitude Sender", 5, eTaskPriority_t::eTaskPriority_Middle, true) {}
+    AttitudeTransmitter() : Task_Abstract("Attitude Sender", 10, eTaskPriority_t::eTaskPriority_Middle) {}
 
     void thread() {
 
@@ -166,7 +176,7 @@ public:
 class PositionTransmitter: public Task_Abstract {
 public:
 
-    PositionTransmitter() : Task_Abstract("Position Sender", 20, eTaskPriority_t::eTaskPriority_Middle, true) {}
+    PositionTransmitter() : Task_Abstract("Position Sender", 20, eTaskPriority_t::eTaskPriority_Middle) {}
 
     void thread() {
 
@@ -183,7 +193,7 @@ public:
 class VelocityTransmitter: public Task_Abstract {
 public:
 
-    VelocityTransmitter() : Task_Abstract("Velocity Sender", 20, eTaskPriority_t::eTaskPriority_Middle, true) {}
+    VelocityTransmitter() : Task_Abstract("Velocity Sender", 20, eTaskPriority_t::eTaskPriority_Middle) {}
 
     void thread() {
 
@@ -200,7 +210,7 @@ public:
 class VehicleModeTransmitter: public Task_Abstract {
 public:
 
-    VehicleModeTransmitter() : Task_Abstract("Vehicle Mode Sender", 5, eTaskPriority_t::eTaskPriority_Middle, true) {}
+    VehicleModeTransmitter() : Task_Abstract("Vehicle Mode Sender", 4, eTaskPriority_t::eTaskPriority_Middle) {}
 
     void thread() {
 
@@ -217,16 +227,13 @@ public:
 class GNSSDataTransmitter: public Task_Abstract {
 public:
 
-    GNSSDataTransmitter() : Task_Abstract("GNSS Data Sender", 4, eTaskPriority_t::eTaskPriority_Middle, true) {}
+    GNSSDataTransmitter() : Task_Abstract("GNSS Data Sender", 4, eTaskPriority_t::eTaskPriority_Middle) {}
 
     void thread() {
 
-        /*
-        if (commsPort.networkBusy()) return;
-
-        KraftMessageGNSSData gnssMessage(navigationmodule.getNavigationData().absolutePosition, gnss.getNumSatellites());
-        commsPort.sendMessage(&gnssMessage, eKraftPacketNodeID_t::eKraftPacketNodeID_broadcast);
-        */
+        TelemetryMessageGNSSData gnssMessage(navigationmodule.getNavigationData().absolutePosition.latitude, navigationmodule.getNavigationData().absolutePosition.longitude, navigationmodule.getNavigationData().absolutePosition.height, gnss.getNumSatellites());
+        commsPort.getBroadcastMessageTopic().publish(gnssMessage);
+        
 
     }
 
@@ -265,6 +272,7 @@ public:
             if (mode == eVehicleMode_t::eVehicleMode_Arm) {
 
                 vehicle.armVehicle();
+                eeprom.saveData();
 
             } else if (mode == eVehicleMode_t::eVehicleMode_Disarm) {
 
@@ -355,7 +363,7 @@ VehicleModeTransmitter modeTransmitter;
 
 VehiclePositionSetter posSetter;
 VehicleModeSetter modeSetter;
-//GNSSDataTransmitter gnssTransmitter;
+GNSSDataTransmitter gnssTransmitter;
 
 //ImAlive aliveThread;
 
@@ -363,13 +371,46 @@ VehicleModeSetter modeSetter;
 
 void setup() {
 
+    delay(2000);
+
     Serial.begin(115200);
 
     //Serial5.begin(115200);
 
-    //Wire.begin();
+    Wire.begin();
+    Wire.setClock(100000);
 
-    delay(2000);
+    EEPROM.begin();
+
+    eeprom.loadData();
+
+    //eeprom.clear();
+    //eeprom.saveData();
+
+    //dynamicsModule.enableTVC(true);
+    //dynamicsModule.setActuatorTesting(true);
+
+    //CommandMessageAccelCalValues mes(Vector<>(9.5,9.41,9.03), Vector<>(-10.06,-10.1,-10.82));
+
+    //if (!eeprom.setMessage(mes)) eeprom.newMessage(mes);
+
+    //dynamicsModule.setControlModule(controlModule.getControlDataTopic());
+    
+
+    /*Serial.println(String("Values: ") + eeprom.getEndIndex());
+    for (uint32_t i = 0; i < 50; i++) {
+        Serial.print(String("-") + i + ". " + eeprom[i]);
+        if ((i-1)%4 == 0) {
+            uint32_t val;
+            eeprom.readData(i, (uint8_t*)&val, 4);
+            Serial.print(String(" = ") + val);
+        }
+        Serial.println();
+    }*/
+
+    //delay(2000);
+
+    //while (1);
 
     Task_Abstract::schedulerInitTasks();
 
@@ -379,6 +420,8 @@ void setup() {
 
 
 void loop() {
+
+    //dynamicsModule.setActuatorTesting(true);
 
     Task_Abstract::schedulerTick();
 

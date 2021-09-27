@@ -5,7 +5,7 @@
 void StarshipDynamics::thread() {
 
 
-    if (!initialised_) init();
+    //if (!initialised_) init();
 
 
     static uint32_t lastswitch = 0;
@@ -40,7 +40,11 @@ void StarshipDynamics::thread() {
             currentForces.force = 0;
             currentForces.torqe = 0;
 
-            if (enableFlaps_) currentForces = flapsDynamicsCalculation(currentForces); //Cascade them to let one correct others residual forces
+            //currentForces = controlOutputSub_.getItem();
+
+            //Serial.println(String("Force: ") + currentForces.force.toString() + ", Torque: " + currentForces.torqe.toString() + ", data new: " + (dataNew ? "yes":"no"));
+
+            if (enableFlaps_) flapsDynamicsCalculation(currentForces); //Cascade them to let one correct others residual forces
             if (enableTVC_) tvcDynamicsCalculation(currentForces);
 
         } else if (actuatorManualMode_ && !actuatorTesting_) {
@@ -171,8 +175,8 @@ void StarshipDynamics::thread() {
         TVCServo3_.setAngle(0);
         TVCServo4_.setAngle(0);
 
-        motorCW_.setChannel(-0.0);
-        motorCCW_.setChannel(-0.0);
+        motorCW_.setChannel(0.0);
+        motorCCW_.setChannel(0.0);
 
         //Get sum of positions. Should be at 0 when all flaps are in position
         float position = flapULControl_.getPosition() + flapURControl_.getPosition() + flapDRControl_.getPosition() + flapDLControl_.getPosition();
@@ -306,13 +310,18 @@ DynamicData StarshipDynamics::tvcDynamicsCalculation(const DynamicData &currentD
 
     Vector<> forceVector;
 
+    //Serial.print(dynamicSetpoint.torqe.toString());
     forceVector = dynamicSetpoint.torqe.cross(-Vector<>(0,0,1/0.35));
+    //Serial.print(", " + forceVector.toString());
     forceVector += dynamicSetpoint.force.getProjectionOn(Vector<>(0,0,1));
+    //Serial.print(", " + forceVector.toString());
 
     direction.x = -forceVector.y;
     direction.y = forceVector.x;
     direction.z = forceVector.z;
+    //Serial.print(", " + direction.toString());
     direction.normalize();
+    //Serial.println(", " + direction.toString());
     force = forceVector.magnitude();
 
     force = min(force, MAX_TVC_FORCE);
@@ -337,7 +346,11 @@ DynamicData StarshipDynamics::tvcDynamicsCalculation(const DynamicData &currentD
     //calculate TVC angles
     float TVC1, TVC2, TVC3, TVC4;
     float twist = -constrain(dynamicSetpoint.torqe.z*yawTorqeScaler/angleScaler/force, -45*DEGREES, 45*DEGREES);
+    if (force < 0.0001) twist = 0;
+    //Serial.println(String(force) + ", " + direction.toString());
     getTVCAngles(direction, twist, TVC1, TVC2, TVC3, TVC4);
+
+    //Serial.println(TVC1*angleScaler);
 
     TVCServo1_.setAngle(TVC1*angleScaler);
     TVCServo2_.setAngle(TVC2*angleScaler);

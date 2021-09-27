@@ -25,7 +25,7 @@ public:
      * @param rate is the rate at which it will be ran at.
      * @param priority is the priority the module will have.
      */
-    StarshipControl(Guidance_Interface& guidanceModule, Navigation_Interface& navigationModule) : Task_Abstract("Starship Control", 4000, eTaskPriority_t::eTaskPriority_Realtime, true) {
+    StarshipControl(Guidance_Interface& guidanceModule, Navigation_Interface& navigationModule) : Task_Abstract("Starship Control", 4000, eTaskPriority_t::eTaskPriority_Realtime) {
         setGuidanceModule(guidanceModule);
         setNavigationModule(navigationModule);
     }
@@ -49,7 +49,7 @@ public:
     /**
      * @param vehicleMass The vehicles mass.
      */
-    inline void setVehicleMass(const float &vehicleMass) {vehicleMass_ = vehicleMass;}
+    inline void setVehicleMass(float vehicleMass) {vehicleMass_ = vehicleMass;}
 
     /**
      * Sets the control modules guidance module.
@@ -145,7 +145,7 @@ private:
 
     float vehicleMass_ = 1.0;
 
-    uint32_t lastLoopTimestamp_ = 0;
+    int64_t lastLoopTimestamp_ = 0;
 
     //P factor for angular acceleration 
     Vector<> angAccelPF_ = 0;
