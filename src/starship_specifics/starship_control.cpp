@@ -9,26 +9,26 @@ void StarshipControl::thread() {
 
 
     //Position control section
-    //controlOutput_.force.x = 0;
-    //controlOutput_.force.y = 0;
-    //controlOutput_.force.z = (1.0-navigationData.position.z)*positionPF_.z - navigationData.velocity.z*velocityPF_.z + 9.81*vehicleMass_; 
-    //controlOutput_.force = navigationData.attitude.copy().conjugate().rotateVector(controlOutput_.force); //Rotate to local coordinate system
+    //controlOutput_.data.force.x = 0;
+    //controlOutput_.data.force.y = 0;
+    //controlOutput_.data.force.z = (1.0-navigationData.data.position.z)*positionPF_.z - navigationData.data.velocity.z*velocityPF_.z + 9.81*vehicleMass_; 
+    //controlOutput_.data.force = navigationData.data.attitude.copy().conjugate().rotateVector(controlOutput_.data.force); //Rotate to local coordinate system
 
-    NavigationData navigationData = navigationSub_.getItem();
+    DataTimestamped<NavigationData> navigationData = navigationSub_.getItem();
     ControlData controlSetpoint = guidanceSub_.getItem();
 
     {  
         
         //calculate error
         Vector<> positionControllerOutput = 0;
-        Vector<> positionError = controlSetpoint.position - navigationData.position;
+        Vector<> positionError = controlSetpoint.position - navigationData.data.position;
 
 
         //Calculate Velocity I term
         positionIValue_ += positionIValue_*positionIF_*dTime;
 
         //Calculate output for limiting
-        positionControllerOutput = positionIValue_ + positionError*positionPF_ - navigationData.velocity*positionDF_;
+        positionControllerOutput = positionIValue_ + positionError*positionPF_ - navigationData.data.velocity*positionDF_;
 
         //Anti windup for output
         if (positionControllerOutput.x > positionLimit_.x) {
@@ -54,18 +54,18 @@ void StarshipControl::thread() {
         }
 
         //Calculate new output
-        positionControllerOutput = positionIValue_ + positionError*positionPF_ - navigationData.velocity*positionDF_;
+        positionControllerOutput = positionIValue_ + positionError*positionPF_ - navigationData.data.velocity*positionDF_;
 
 
         //Velocity controller
         Vector<> velocityControllerOutput = 0;
-    	Vector<> velocityError = positionControllerOutput + controlSetpoint.velocity - navigationData.velocity;
+    	Vector<> velocityError = positionControllerOutput + controlSetpoint.velocity - navigationData.data.velocity;
 
         //Calculate Velocity I term
         velocityIValue_ += velocityError*velocityIF_*dTime;
 
         //Calculate output for limiting
-        velocityControllerOutput = velocityIValue_ + velocityError*velocityPF_ - navigationData.linearAcceleration*velocityDF_;
+        velocityControllerOutput = velocityIValue_ + velocityError*velocityPF_ - navigationData.data.linearAcceleration*velocityDF_;
 
         //Anti windup for output
         if (velocityControllerOutput.x > velocityLimit_.x) {
@@ -91,7 +91,7 @@ void StarshipControl::thread() {
         }
 
         //Calculate new output
-        velocityControllerOutput = velocityIValue_ + velocityError*velocityPF_ - navigationData.linearAcceleration*velocityDF_;
+        velocityControllerOutput = velocityIValue_ + velocityError*velocityPF_ - navigationData.data.linearAcceleration*velocityDF_;
 
         
         //Include external forces e.g. gravity
@@ -108,10 +108,10 @@ void StarshipControl::thread() {
         Vector<> force = rotation.rotateVector(Vector<>(0,0,1))*forceBuf.magnitude()*cosLimit;
 
         //Transform into local coordinate system
-        force = navigationData.attitude.rotateVector(force);
+        force = navigationData.data.attitude.rotateVector(force);
 
         //Update output
-        controlOutput_.force = force;
+        controlOutput_.data.force = force;
 
         //Update attitude setpoint
         controlSetpoint.attitude = rotation;
@@ -132,11 +132,11 @@ void StarshipControl::thread() {
     //Position control section
     /*if (controlSetpoint.positionControlMode == eControlMode_t::eControlMode_Disable) {
 
-        controlOutput_.force = 0;
+        controlOutput_.data.force = 0;
 
     } else {    
 
-        controlOutput_.force = 0;
+        controlOutput_.data.force = 0;
 
         ControlData setpoint = *controlSetpoint;
         KinematicData ispoint = *navigationData;
@@ -177,14 +177,14 @@ void StarshipControl::thread() {
                 positionIValue_.z = min(positionIValue_.z, 0.0f); //Make sure not to remove so much that it goes negative
             }
 
-            attitudeOutput = error.compWiseMulti(attitudePF_) + (setpoint.angularRate - navigationData.angularRate).compWiseMulti(attitudeDF_) + attitudeIValue_; //Recalculate new output
+            attitudeOutput = error.compWiseMulti(attitudePF_) + (setpoint.angularRate - navigationData.data.angularRate).compWiseMulti(attitudeDF_) + attitudeIValue_; //Recalculate new output
 
             //Constrain output
             attitudeOutput.x = constrain(attitudeOutput.x, -attitudeLimit_.x, attitudeLimit_.x);
             attitudeOutput.y = constrain(attitudeOutput.y, -attitudeLimit_.y, attitudeLimit_.y);
             attitudeOutput.z = constrain(attitudeOutput.z, -attitudeLimit_.z, attitudeLimit_.z);
 
-            //attitudeOutput = navigationData.attitude.rotateVector(attitudeOutput);
+            //attitudeOutput = navigationData.data.attitude.rotateVector(attitudeOutput);
 
             //Serial.println(String("Output: x: ") + attitudeOutput.x + ", y: " + attitudeOutput.y + ", z: " + attitudeOutput.z);
 
@@ -195,11 +195,11 @@ void StarshipControl::thread() {
 
         if (setpoint.positionControlMode == eControlMode_t::eControlMode_Velocity || setpoint.positionControlMode == eControlMode_t::eControlMode_Velocity_Position || setpoint.positionControlMode == eControlMode_t::eControlMode_Acceleration_Velocity_Position) {
 
-            Vector<> error = navigationData.attitude.copy().conjugate().rotateVector(setpoint.angularRate - navigationData.angularRate); //Calculate setpoint error and then rotate to local coordinate system.
+            Vector<> error = navigationData.data.attitude.copy().conjugate().rotateVector(setpoint.angularRate - navigationData.data.angularRate); //Calculate setpoint error and then rotate to local coordinate system.
 
             angVelIValue_ += error.compWiseMulti(angVelIF_);
 
-            Vector<> angVelOutput = error.compWiseMulti(angVelPF_) + (setpoint.angularAcceleration - navigationData.angularAcceleration).compWiseMulti(angVelDF_) + angVelIValue_;
+            Vector<> angVelOutput = error.compWiseMulti(angVelPF_) + (setpoint.angularAcceleration - navigationData.data.angularAcceleration).compWiseMulti(angVelDF_) + angVelIValue_;
 
             if (angVelOutput.x > angVelLimit_.x) {
                 angVelIValue_.x -= angVelOutput.x - angVelLimit_.x; //Remove saturation from I according to overthreshold
@@ -223,7 +223,7 @@ void StarshipControl::thread() {
                 angVelIValue_.z = min(angVelIValue_.z, 0.0f); //Make sure not to remove so much that it goes negative
             }
 
-            angVelOutput = error.compWiseMulti(angVelPF_) + (setpoint.angularAcceleration - navigationData.angularAcceleration).compWiseMulti(angVelDF_) + angVelIValue_; //Recalculate new output
+            angVelOutput = error.compWiseMulti(angVelPF_) + (setpoint.angularAcceleration - navigationData.data.angularAcceleration).compWiseMulti(angVelDF_) + angVelIValue_; //Recalculate new output
 
             //Constrain output
             angVelOutput.x = constrain(angVelOutput.x, -angVelLimit_.x, angVelLimit_.x);
@@ -238,11 +238,11 @@ void StarshipControl::thread() {
 
         if (setpoint.positionControlMode == eControlMode_t::eControlMode_Acceleration || setpoint.positionControlMode == eControlMode_t::eControlMode_Acceleration_Velocity || setpoint.positionControlMode == eControlMode_t::eControlMode_Acceleration_Velocity_Position) {
 
-            Vector<> error = navigationData.attitude.copy().conjugate().rotateVector(setpoint.angularAcceleration - navigationData.angularAcceleration); //Calculate setpoint error and then rotate to local coordinate system.
+            Vector<> error = navigationData.data.attitude.copy().conjugate().rotateVector(setpoint.angularAcceleration - navigationData.data.angularAcceleration); //Calculate setpoint error and then rotate to local coordinate system.
 
             angAccelIValue_ += error.compWiseMulti(angAccelIF_);
 
-            Vector<> angAccelOutput = error.compWiseMulti(angAccelPF_) + (setpoint.angularAcceleration - navigationData.angularAcceleration).compWiseMulti(angVelDF_) currently not implemented  + angAccelIValue_;
+            Vector<> angAccelOutput = error.compWiseMulti(angAccelPF_) + (setpoint.angularAcceleration - navigationData.data.angularAcceleration).compWiseMulti(angVelDF_) currently not implemented  + angAccelIValue_;
 
             if (angAccelOutput.x > angAccelLimit_.x) {
                 angAccelIValue_.x -= angAccelOutput.x - angAccelLimit_.x; //Remove saturation from I according to overthreshold
@@ -266,7 +266,7 @@ void StarshipControl::thread() {
                 angAccelIValue_.z = min(angAccelIValue_.z, 0.0f); //Make sure not to remove so much that it goes negative
             }
 
-            angAccelOutput = error.compWiseMulti(angAccelPF_) + (setpoint.angularAcceleration - navigationData.angularAcceleration).compWiseMulti(angVelDF_) currently not implemented  + angAccelIValue_; //Recalculate new output
+            angAccelOutput = error.compWiseMulti(angAccelPF_) + (setpoint.angularAcceleration - navigationData.data.angularAcceleration).compWiseMulti(angVelDF_) currently not implemented  + angAccelIValue_; //Recalculate new output
 
             //Constrain output
             angAccelOutput.x = constrain(angAccelOutput.x, -angAccelLimit_.x, angAccelLimit_.x);
@@ -275,21 +275,21 @@ void StarshipControl::thread() {
 
         }
 
-        //controlOutput_.torqe = outputTotal;
-        //Serial.println(String("Test: x: ") + controlOutput_.torqe.x + ", y: " + controlOutput_.torqe.y + ", z: " + controlOutput_.torqe.z);
+        //controlOutput_.data.torqe = outputTotal;
+        //Serial.println(String("Test: x: ") + controlOutput_.data.torqe.x + ", y: " + controlOutput_.data.torqe.y + ", z: " + controlOutput_.data.torqe.z);
 
     }*/
 
 
     
     //Attitude control section
-    if (controlSetpoint.attitudeControlMode == eControlMode_t::eControlMode_Disable) {
+    if (!(controlSetpoint.attitudeControlMode.accelerationControl || controlSetpoint.attitudeControlMode.velocityControl || controlSetpoint.attitudeControlMode.positionControl)) {
 
-        controlOutput_.torqe = 0;
+        controlOutput_.data.torqe = 0;
 
     } else {    
 
-        controlOutput_.torqe = 0;
+        controlOutput_.data.torqe = 0;
 
         ControlData setpoint = controlSetpoint;
 
@@ -299,15 +299,15 @@ void StarshipControl::thread() {
 
         Vector<> outputTotal(0);
 
-        if (setpoint.attitudeControlMode == eControlMode_t::eControlMode_Position || setpoint.attitudeControlMode == eControlMode_t::eControlMode_Velocity_Position || setpoint.attitudeControlMode == eControlMode_t::eControlMode_Acceleration_Velocity_Position) {
+        if (setpoint.attitudeControlMode.positionControl) {
 
-            Vector<> error = navigationData.attitude.copy().conjugate().rotateVector((setpoint.attitude.normalize(true)^navigationData.attitude.copy().conjugate().normalize(true)).normalize(true).toVector()); //Error is calculated here already in local coordinate system.
+            Vector<> error = navigationData.data.attitude.copy().conjugate().rotateVector((setpoint.attitude.normalize(true)^navigationData.data.attitude.copy().conjugate().normalize(true)).normalize(true).toVector()); //Error is calculated here already in local coordinate system.
 
             //Serial.println(String("Error: x: ") + error.x + ", y: " + error.y + ", z: " + error.z);
 
             attitudeIValue_ += error.compWiseMulti(attitudeIF_);
 
-            Vector<> attitudeOutput = error.compWiseMulti(attitudePF_) + navigationData.attitude.rotateVector(setpoint.angularRate - navigationData.angularRate).compWiseMulti(attitudeDF_) + attitudeIValue_;
+            Vector<> attitudeOutput = error.compWiseMulti(attitudePF_) + navigationData.data.attitude.rotateVector(setpoint.angularRate - navigationData.data.angularRate).compWiseMulti(attitudeDF_) + attitudeIValue_;
 
             if (attitudeOutput.x > attitudeLimit_.x) {
                 attitudeIValue_.x -= attitudeOutput.x - attitudeLimit_.x; //Remove saturation from I according to overthreshold
@@ -331,14 +331,14 @@ void StarshipControl::thread() {
                 attitudeIValue_.z = min(attitudeIValue_.z, 0.0f); //Make sure not to remove so much that it goes negative
             }
 
-            attitudeOutput = error.compWiseMulti(attitudePF_) + navigationData.attitude.rotateVector(setpoint.angularRate - navigationData.angularRate).compWiseMulti(attitudeDF_) + attitudeIValue_; //Recalculate new output
+            attitudeOutput = error.compWiseMulti(attitudePF_) + navigationData.data.attitude.rotateVector(setpoint.angularRate - navigationData.data.angularRate).compWiseMulti(attitudeDF_) + attitudeIValue_; //Recalculate new output
 
             //Constrain output
             attitudeOutput.x = constrain(attitudeOutput.x, -attitudeLimit_.x, attitudeLimit_.x);
             attitudeOutput.y = constrain(attitudeOutput.y, -attitudeLimit_.y, attitudeLimit_.y);
             attitudeOutput.z = constrain(attitudeOutput.z, -attitudeLimit_.z, attitudeLimit_.z);
 
-            //attitudeOutput = navigationData.attitude.rotateVector(attitudeOutput);
+            //attitudeOutput = navigationData.data.attitude.rotateVector(attitudeOutput);
 
             //Serial.println(String("Output: x: ") + attitudeOutput.x + ", y: " + attitudeOutput.y + ", z: " + attitudeOutput.z);
 
@@ -347,13 +347,13 @@ void StarshipControl::thread() {
 
         }
 
-        if (setpoint.attitudeControlMode == eControlMode_t::eControlMode_Velocity || setpoint.attitudeControlMode == eControlMode_t::eControlMode_Velocity_Position || setpoint.attitudeControlMode == eControlMode_t::eControlMode_Acceleration_Velocity_Position) {
+        if (setpoint.attitudeControlMode.velocityControl) {
 
-            Vector<> error = navigationData.attitude.copy().conjugate().rotateVector(setpoint.angularRate - navigationData.angularRate); //Calculate setpoint error and then rotate to local coordinate system.
+            Vector<> error = navigationData.data.attitude.copy().conjugate().rotateVector(setpoint.angularRate - navigationData.data.angularRate); //Calculate setpoint error and then rotate to local coordinate system.
 
             angVelIValue_ += error.compWiseMulti(angVelIF_);
 
-            Vector<> angVelOutput = error.compWiseMulti(angVelPF_) + (setpoint.angularAcceleration - navigationData.angularAcceleration).compWiseMulti(angVelDF_) + angVelIValue_;
+            Vector<> angVelOutput = error.compWiseMulti(angVelPF_) + (setpoint.angularAcceleration - navigationData.data.angularAcceleration).compWiseMulti(angVelDF_) + angVelIValue_;
 
             if (angVelOutput.x > angVelLimit_.x) {
                 angVelIValue_.x -= angVelOutput.x - angVelLimit_.x; //Remove saturation from I according to overthreshold
@@ -377,7 +377,7 @@ void StarshipControl::thread() {
                 angVelIValue_.z = min(angVelIValue_.z, 0.0f); //Make sure not to remove so much that it goes negative
             }
 
-            angVelOutput = error.compWiseMulti(angVelPF_) + (setpoint.angularAcceleration - navigationData.angularAcceleration).compWiseMulti(angVelDF_) + angVelIValue_; //Recalculate new output
+            angVelOutput = error.compWiseMulti(angVelPF_) + (setpoint.angularAcceleration - navigationData.data.angularAcceleration).compWiseMulti(angVelDF_) + angVelIValue_; //Recalculate new output
 
             //Constrain output
             angVelOutput.x = constrain(angVelOutput.x, -angVelLimit_.x, angVelLimit_.x);
@@ -390,13 +390,13 @@ void StarshipControl::thread() {
 
         }
 
-        if (setpoint.attitudeControlMode == eControlMode_t::eControlMode_Acceleration || setpoint.attitudeControlMode == eControlMode_t::eControlMode_Acceleration_Velocity || setpoint.attitudeControlMode == eControlMode_t::eControlMode_Acceleration_Velocity_Position) {
+        if (setpoint.attitudeControlMode.accelerationControl) {
 
-            Vector<> error = navigationData.attitude.copy().conjugate().rotateVector(setpoint.angularAcceleration - navigationData.angularAcceleration); //Calculate setpoint error and then rotate to local coordinate system.
+            Vector<> error = navigationData.data.attitude.copy().conjugate().rotateVector(setpoint.angularAcceleration - navigationData.data.angularAcceleration); //Calculate setpoint error and then rotate to local coordinate system.
 
             angAccelIValue_ += error.compWiseMulti(angAccelIF_);
 
-            Vector<> angAccelOutput = error.compWiseMulti(angAccelPF_)/* + (setpoint.angularAcceleration - navigationData.angularAcceleration).compWiseMulti(angVelDF_) currently not implemented */ + angAccelIValue_;
+            Vector<> angAccelOutput = error.compWiseMulti(angAccelPF_)/* + (setpoint.angularAcceleration - navigationData.data.angularAcceleration).compWiseMulti(angVelDF_) currently not implemented */ + angAccelIValue_;
 
             if (angAccelOutput.x > angAccelLimit_.x) {
                 angAccelIValue_.x -= angAccelOutput.x - angAccelLimit_.x; //Remove saturation from I according to overthreshold
@@ -420,7 +420,7 @@ void StarshipControl::thread() {
                 angAccelIValue_.z = min(angAccelIValue_.z, 0.0f); //Make sure not to remove so much that it goes negative
             }
 
-            angAccelOutput = error.compWiseMulti(angAccelPF_)/* + (setpoint.angularAcceleration - navigationData.angularAcceleration).compWiseMulti(angVelDF_) currently not implemented */ + angAccelIValue_; //Recalculate new output
+            angAccelOutput = error.compWiseMulti(angAccelPF_)/* + (setpoint.angularAcceleration - navigationData.data.angularAcceleration).compWiseMulti(angVelDF_) currently not implemented */ + angAccelIValue_; //Recalculate new output
 
             //Constrain output
             angAccelOutput.x = constrain(angAccelOutput.x, -angAccelLimit_.x, angAccelLimit_.x);
@@ -429,8 +429,8 @@ void StarshipControl::thread() {
 
         }
 
-        controlOutput_.torqe = outputTotal;
-        //Serial.println(String("Test: x: ") + controlOutput_.torqe.x + ", y: " + controlOutput_.torqe.y + ", z: " + controlOutput_.torqe.z);
+        controlOutput_.data.torqe = outputTotal;
+        //Serial.println(String("Test: x: ") + controlOutput_.data.torqe.x + ", y: " + controlOutput_.data.torqe.y + ", z: " + controlOutput_.data.torqe.z);
 
     }
 

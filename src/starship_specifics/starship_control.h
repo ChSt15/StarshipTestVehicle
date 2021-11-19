@@ -139,9 +139,9 @@ public:
 private:
 
     Simple_Subscriber<ControlData> guidanceSub_;
-    Simple_Subscriber<NavigationData> navigationSub_;
+    Simple_Subscriber<DataTimestamped<NavigationData>> navigationSub_;
 
-    DynamicData controlOutput_;
+    DataTimestamped<DynamicData> controlOutput_;
 
     float vehicleMass_ = 1.0;
 

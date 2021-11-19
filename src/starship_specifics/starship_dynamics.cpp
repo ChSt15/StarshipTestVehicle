@@ -195,10 +195,10 @@ void StarshipDynamics::thread() {
             flapDRControl_.setParameters(FLAP_START_MAX_VELOCITY, FLAP_START_MAX_ACCEL);
             flapDLControl_.setParameters(FLAP_START_MAX_VELOCITY, FLAP_START_MAX_ACCEL);
 
-            flapULControl_.setPosition(0*DEGREES);
-            flapURControl_.setPosition(0*DEGREES);
-            flapDRControl_.setPosition(0*DEGREES);
-            flapDLControl_.setPosition(0*DEGREES);
+            flapULControl_.setPosition(90*DEGREES);
+            flapURControl_.setPosition(90*DEGREES);
+            flapDRControl_.setPosition(90*DEGREES);
+            flapDLControl_.setPosition(90*DEGREES);
 
             TVCServo1_.activateChannel(false);
             TVCServo2_.activateChannel(false);
@@ -231,7 +231,7 @@ void StarshipDynamics::thread() {
 DynamicData StarshipDynamics::flapsDynamicsCalculation(const DynamicData &currentDynamics) {
 
     
-    const DynamicData& dynamicSetpoint = controlOutputSub_.getItem();
+    const DynamicData& dynamicSetpoint = controlOutputSub_.getItem().data;
 
     //Calculate speed for flaps
     float windSpeed = Vector<>(0,0,19).magnitude();// (navigationData_->velocity.getProjectionOn(navigationData_->attitude.rotateVector(Vector<>(0,0,1)))).magnitude();
@@ -296,7 +296,7 @@ DynamicData StarshipDynamics::flapsDynamicsCalculation(const DynamicData &curren
 
 DynamicData StarshipDynamics::tvcDynamicsCalculation(const DynamicData &currentDynamics) {
 
-    DynamicData dynamicSetpoint = controlOutputSub_.getItem();
+    DynamicData dynamicSetpoint = controlOutputSub_.getItem().data;
 
     dynamicSetpoint.force -= currentDynamics.force;
     dynamicSetpoint.torqe -= currentDynamics.torqe;
@@ -362,10 +362,10 @@ DynamicData StarshipDynamics::tvcDynamicsCalculation(const DynamicData &currentD
     TVCServo3_.setAngle(0*DEGREES);
     TVCServo4_.setAngle(90*DEGREES);*/
 
-    flapULControl_.setPosition(90*DEGREES);
-    flapURControl_.setPosition(90*DEGREES);
-    flapDRControl_.setPosition(90*DEGREES);
-    flapDLControl_.setPosition(90*DEGREES);
+    flapULControl_.setPosition(0*DEGREES);
+    flapURControl_.setPosition(0*DEGREES);
+    flapDRControl_.setPosition(0*DEGREES);
+    flapDLControl_.setPosition(0*DEGREES);
 
 
     //force = force/MAX_TVC_FORCE;

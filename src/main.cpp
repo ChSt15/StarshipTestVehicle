@@ -3,10 +3,16 @@
 #include "boards/board_v_1_0.h"
 #include "KraftKontrol.h"
 
+#include "fastlz.h"
+
 #include "starship_specifics/starship.h"
+
+#include "KraftKontrol/modules/navigation_modules/navigation_kalman.h"
 
 #include "KraftKontrol/modules/sensor_modules/magnetometer_modules/hmc5883_driver.h"
 #include "KraftKontrol/platforms/arduino_platform/arduino_data_manager_eeprom.h"
+
+#include "Adafruit_SSD1306.h"
 
 
 #define HEIGHT_LIMIT 50
@@ -23,17 +29,19 @@ KraftKommunication commsPort(radio, eKraftMessageNodeID_t::eKraftMessageNodeID_v
 
 BME280Driver barometer(BME280_NCS_PIN, &BME280_SPIBUS);
 MPU9250Driver IMU(MPU9250_INT_PIN, MPU9250_NCS_PIN, &MPU9250_SPIBUS, &eeprom);
-UbloxSerialGNSS gnss(NEO_M8Q_SERIALPORT);
+//UbloxSerialGNSS gnss(NEO_M8Q_SERIALPORT);
 
 I2CBusDevice_HAL magnetometerBusDevice(Wire, QMC5883Registers::QMC5883L_ADDR_DEFAULT);
 QMC5883Driver magnetometer(magnetometerBusDevice, QMC5883Registers::QMC5883L_ADDR_DEFAULT, &eeprom);
 
-NavigationComplementaryFilter navigationmodule(&IMU, &IMU, &magnetometer, &barometer, &gnss);
+//NavigationComplementaryFilter navigationmodule(&IMU, &IMU, &magnetometer, &barometer, &gnss);
+NavigationKalman navigationmodule;
 GuidanceFlyByWire guidanceModule;
 StarshipControl controlModule(guidanceModule, navigationmodule);
 StarshipDynamics dynamicsModule(controlModule, navigationmodule);
 
 Starship vehicle(&guidanceModule, &navigationmodule, &controlModule, &dynamicsModule);
+
 
 
 
@@ -53,7 +61,7 @@ public:
     Observer() : Task_Abstract("Observer", 100, eTaskPriority_t::eTaskPriority_Middle) {}
 
     void init() {
-        gyroSub.subscribe(IMU.getAccelTopic());
+        //gyroSub.subscribe(IMU.getAccelTopic());
     }
 
     void thread() {
@@ -64,41 +72,61 @@ public:
 
         //Serial.println(String("IMU gyro: ") + gyroSub.getItem().sensorData.toString());
 
+        //Serial.println(String("Acc: ") + navigationmodule.getNavigationData().data.linearAcceleration.magnitude() + ", vel: " + navigationmodule.getNavigationData().data.velocity.magnitude());
+
         /*if (commsPort.getNodeStatus(eKraftPacketNodeID_t::eKraftPacketNodeID_controller) == false) {
             vehicle.disarmVehicle();
         }*/
 
-        //float angle = navigationmodule.getNavigationData().attitude.rotateVector(Vector(0,0,1)).getAngleTo(Vector(0,0,1));
+        //float angle = navigationmodule.getNavigationData().data.attitude.rotateVector(Vector(0,0,1)).getAngleTo(Vector(0,0,1));
 
         //Serial.println();
 
         //Serial.println(String("Modules: ") + Module_Abstract::getListExistingModules().getNumItems());
         
-        //Serial.println(navigationmodule.getNavigationData().position.z);
+        //Serial.println(navigationmodule.getNavigationData().data.position.z);
 
-        //Serial.println(String() + "Pos: " + navigationmodule.getNavigationData().position.z*5 + " Vel: " + navigationmodule.getNavigationData().velocity.z*3 + " Acc: " + navigationmodule.getNavigationData().linearAcceleration.z/5);
-        //Serial.println(String() + String(navigationmodule.getNavigationData().position.x, 4) + "," + String(1/*navigationmodule.getNavigationData().positionError.x*/, 4) + "," + String(navigationmodule.getNavigationData().position.y, 4) + "," + String(navigationmodule.getNavigationData().positionError.y, 4) + "," + String(navigationmodule.getNavigationData().position.z, 4) + "," + String(navigationmodule.getNavigationData().positionError.z, 4));
+        //Serial.println(String() + "Pos: " + navigationmodule.getNavigationData().data.position.z*5 + " Vel: " + navigationmodule.getNavigationData().data.velocity.z*3 + " Acc: " + navigationmodule.getNavigationData().data.linearAcceleration.z/5);
+        //Serial.println(String() + String(navigationmodule.getNavigationData().data.position.x, 4) + "," + String(navigationmodule.getNavigationData().data.positionError.x, 4) + "," + String(navigationmodule.getNavigationData().data.position.y, 4) + "," + String(navigationmodule.getNavigationData().data.positionError.y, 4) + "," + String(navigationmodule.getNavigationData().data.position.z, 4) + "," + String(navigationmodule.getNavigationData().data.positionError.z, 4));
+        //Serial.println(String((double)NOW()/SECONDS, 6));
 
+        /*uint8_t rawData[sizeof(NavigationData)];
 
-        //Serial.println(navigationmodule.getNavigationData().position.z);
+        memcpy(rawData, &navigationmodule.getNavigationData(), sizeof(NavigationData));
+
+        uint32_t maxSize = sizeof(NavigationData)*1.1;
+        uint8_t rawDataCompressed[maxSize];
+
+        Serial.print("Testing compression...  ");
+
+        //delay(100);
+        int64_t startTime = NOW();
+        int size = fastlz_compress_level(2, rawDataCompressed, maxSize, rawDataCompressed);
+
+        int64_t length = NOW() - startTime;
+
+        Serial.println(String("Raw size: ") + sizeof(NavigationData) + ", new Size: " + size + ", time: " + uint32_t(length/MICROSECONDS));*/
+
+        //Serial.println(navigationmodule.getNavigationData().data.position.z);
         //Serial.println(IMU.gyroRate());
-        //Serial.println(String("linear accel: x: ") + navigationmodule.getNavigationData().linearAcceleration.x + ",\ty: " + navigationmodule.getNavigationData().linearAcceleration.x + ", \tz: " + navigationmodule.getNavigationData().linearAcceleration.z);
-        //Serial.println(String(" Accel: x: ") + navigationmodule.getNavigationData().acceleration.x + "+-" + navigationmodule.getNavigationData().accelerationError.x + ", y: " + navigationmodule.getNavigationData().acceleration.y + "+-" + navigationmodule.getNavigationData().accelerationError.y + ", z: " + navigationmodule.getNavigationData().acceleration.z + "+-" + navigationmodule.getNavigationData().accelerationError.z);
-        //Serial.println(String(" pos: x: ") + navigationmodule.getNavigationData().position.x + "+-" + navigationmodule.getNavigationData().positionError.x + ", y: " + navigationmodule.getNavigationData().position.y + "+-" + navigationmodule.getNavigationData().positionError.y + ", z: " + navigationmodule.getNavigationData().position.z + "+-" + String(navigationmodule.getNavigationData().positionError.z,6));
+        //Serial.println(String("linear accel: x: ") + navigationmodule.getNavigationData().data.linearAcceleration.x + "+-" + navigationmodule.getNavigationData().data.accelerationError.x + ", y: " + navigationmodule.getNavigationData().data.linearAcceleration.y + "+-" + navigationmodule.getNavigationData().data.accelerationError.y + ", z: " + navigationmodule.getNavigationData().data.linearAcceleration.z + "+-" + navigationmodule.getNavigationData().data.accelerationError.z);
+        //Serial.println(String(" Accel: x: ") + navigationmodule.getNavigationData().data.acceleration.x + "+-" + navigationmodule.getNavigationData().data.accelerationError.x + ", y: " + navigationmodule.getNavigationData().data.acceleration.y + "+-" + navigationmodule.getNavigationData().data.accelerationError.y + ", z: " + navigationmodule.getNavigationData().data.acceleration.z + "+-" + navigationmodule.getNavigationData().data.accelerationError.z);
+        //Serial.println(String(" pos: x: ") + navigationmodule.getNavigationData().data.position.x + "+-" + navigationmodule.getNavigationData().data.positionError.x + ", y: " + navigationmodule.getNavigationData().data.position.y + "+-" + navigationmodule.getNavigationData().data.positionError.y + ", z: " + navigationmodule.getNavigationData().data.position.z + "+-" + String(navigationmodule.getNavigationData().data.positionError.z,6));
         //Serial.println(String(", baro Rate: ") + barometer.pressureRate());
-        //Serial.println(String("att: w: ") + navigationmodule.getNavigationData().attitude.w + " , x: " + navigationmodule.getNavigationData().attitude.x + ", y: " + navigationmodule.getNavigationData().attitude.y + ", z: " + navigationmodule.getNavigationData().attitude.z + ", Calib: " + /*(magnetometer.getCalibrationStatus() == eMagCalibStatus_t::eMagCalibStatus_Calibrating ? " calibrating " : " calibrated ") + ", gnss rate: " + gnss.positionRate() + */", time: " + (double)NOW()/SECONDS + ", rate: " + IMU.gyroRate());
-        //Serial.println(String(", Angular rate: x: ") + navigationmodule.getNavigationData().angularRate.x + "+-" + navigationmodule.getNavigationData().angularRateError.x + ", y: " + navigationmodule.getNavigationData().angularRate.y + "+-" + navigationmodule.getNavigationData().angularRateError.y + ", z: " + navigationmodule.getNavigationData().angularRate.z + "+-" + navigationmodule.getNavigationData().angularRateError.z);
-        //Serial.println(String(" Absolute: lat: ") + navigationmodule.getNavigationData().absolutePosition.latitude + " , long: " + navigationmodule.getNavigationData().absolutePosition.longitude + ", alt: " + navigationmodule.getNavigationData().absolutePosition.height + ", pos rate: " + gnss.positionRate());
+        //Serial.print(String("att: w: ") + navigationmodule.getNavigationData().data.attitude.w + " , x: " + navigationmodule.getNavigationData().data.attitude.x + ", y: " + navigationmodule.getNavigationData().data.attitude.y + ", z: " + navigationmodule.getNavigationData().data.attitude.z + ", Calib: " + /*(magnetometer.getCalibrationStatus() == eMagCalibStatus_t::eMagCalibStatus_Calibrating ? " calibrating " : " calibrated ") + ", gnss rate: " + gnss.positionRate() + */", time: " + (double)NOW()/SECONDS + ", rate: " + IMU.gyroRate());
+        //Serial.println(String(", Angular rate: x: ") + navigationmodule.getNavigationData().data.angularRate.x + "+-" + navigationmodule.getNavigationData().data.angularRateError.x + ", y: " + navigationmodule.getNavigationData().data.angularRate.y + "+-" + navigationmodule.getNavigationData().data.angularRateError.y + ", z: " + navigationmodule.getNavigationData().data.angularRate.z + "+-" + navigationmodule.getNavigationData().data.angularRateError.z);
+        //Serial.println(String(", Angular Accel: x: ") + navigationmodule.getNavigationData().data.angularAcceleration.x + "+-" + String(navigationmodule.getNavigationData().data.angularAccelerationError.x,7) + ", y: " + navigationmodule.getNavigationData().data.angularAcceleration.y + "+-" + navigationmodule.getNavigationData().data.angularAccelerationError.y + ", z: " + navigationmodule.getNavigationData().data.angularAcceleration.z + "+-" + navigationmodule.getNavigationData().data.angularAccelerationError.z);
+        //Serial.println(String(" Absolute: lat: ") + navigationmodule.getNavigationData().data.absolutePosition.latitude + " , long: " + navigationmodule.getNavigationData().data.absolutePosition.longitude + ", alt: " + navigationmodule.getNavigationData().data.absolutePosition.height + ", pos rate: " + gnss.positionRate());
         //Serial.println(String("GNSS status: ") + deviceStatusToString(gnss.getModuleStatus()) + String(", sats: ") + gnss.getNumSatellites() + " , rate: " + gnss.positionRate() + " , lock valid: " + (gnss.getGNSSLockValid() ? "true":"false"));
         //Serial.println(String("Hori acc: ") + gnss.getPositionAccuracy() + ", virt: " + gnss.getAltitudeAccuracy());
 
         //Serial.println(String("IMU gyro: ") + IMU.gyroRate() + ", accel: " + IMU.accelRate());
 
-        //Serial.println(String("") + navigationmodule.getNavigationData().position.z + "  " + navigationmodule.getNavigationData().velocity.z + " " + constrain(navigationmodule.getNavigationData().acceleration.z, -4, 4));
+        //Serial.println(String("") + navigationmodule.getNavigationData().data.position.z + "  " + navigationmodule.getNavigationData().data.velocity.z + " " + constrain(navigationmodule.getNavigationData().data.acceleration.z, -4, 4));
 
-        /*Serial.print(navigationmodule.getNavigationData().velocity.z);
+        /*Serial.print(navigationmodule.getNavigationData().data.velocity.z);
         Serial.print(" ");
-        Serial.println(navigationmodule.getNavigationData().position.z);*/
+        Serial.println(navigationmodule.getNavigationData().data.position.z);*/
 
         //Serial.println(String("Vehicle mode: ") + vehicle.getVehicleData().vehicleMode);
 
@@ -109,12 +137,12 @@ public:
         commsPort.sendMessage(&message, eKraftPacketNodeID_t::eKraftPacketNodeID_broadcast);*/
         /*
         //Checks for flight profile safety.
-        if (navigationmodule.getNavigationData().position.z > HEIGHT_LIMIT && homeSet) {
+        if (navigationmodule.getNavigationData().data.position.z > HEIGHT_LIMIT && homeSet) {
             //vehicle.disarmVehicle();
             disarmLock = true;
         }
 
-        Vector<> distanceVec = navigationmodule.getNavigationData().position;
+        Vector<> distanceVec = navigationmodule.getNavigationData().data.position;
         distanceVec.z = 0;
 
         if (distanceVec.magnitude() > DISTANCE_LIMIT && homeSet) {
@@ -122,7 +150,7 @@ public:
             disarmLock = true;
         }
 
-        float angle = Vector<>(0,0,1).getAngleTo(navigationmodule.getNavigationData().attitude.rotateVector(Vector<>(0,0,1)));
+        float angle = Vector<>(0,0,1).getAngleTo(navigationmodule.getNavigationData().data.attitude.rotateVector(Vector<>(0,0,1)));
 
         if (angle > ANGLE_LIMIT) {
             //vehicle.disarmVehicle();
@@ -140,14 +168,14 @@ public:
         //delete[] test;
 
         /*TelemetryMessageVelocity vecMessage;
-        vecMessage = navigationmodule.getNavigationData().angularRate;
+        vecMessage = navigationmodule.getNavigationData().data.angularRate;
 
         commsPort.getBroadcastMessageTopic().publish(vecMessage);*/
 
     }
 
 
-    Simple_Subscriber<SensorTimestamp<Vector<>>> gyroSub;
+    Simple_Subscriber<DataTimestamped<Vector<>>> gyroSub;
 
     LowPassFilter<Vector<>> lpf = 0.05;
 
@@ -163,7 +191,7 @@ public:
 
     void thread() {
 
-        TelemetryMessageAttitude attitudeMessage(navigationmodule.getNavigationData().attitude);
+        TelemetryMessageAttitude attitudeMessage(navigationmodule.getNavigationData().data.attitude);
         commsPort.getBroadcastMessageTopic().publish(attitudeMessage);
 
     }
@@ -180,7 +208,7 @@ public:
 
     void thread() {
 
-        TelemetryMessagePosition positionMessage(navigationmodule.getNavigationData().position);
+        TelemetryMessagePosition positionMessage(navigationmodule.getNavigationData().data.position);
         commsPort.getBroadcastMessageTopic().publish(positionMessage);
 
     }
@@ -197,7 +225,7 @@ public:
 
     void thread() {
 
-        TelemetryMessageVelocity velocityMessage(navigationmodule.getNavigationData().velocity);
+        TelemetryMessageVelocity velocityMessage(navigationmodule.getNavigationData().data.velocity);
         commsPort.getBroadcastMessageTopic().publish(velocityMessage);
 
     }
@@ -231,8 +259,8 @@ public:
 
     void thread() {
 
-        TelemetryMessageGNSSData gnssMessage(navigationmodule.getNavigationData().absolutePosition.latitude, navigationmodule.getNavigationData().absolutePosition.longitude, navigationmodule.getNavigationData().absolutePosition.height, gnss.getNumSatellites());
-        commsPort.getBroadcastMessageTopic().publish(gnssMessage);
+        //TelemetryMessageGNSSData gnssMessage(navigationmodule.getNavigationData().data.absolutePosition.latitude, navigationmodule.getNavigationData().data.absolutePosition.longitude, navigationmodule.getNavigationData().data.absolutePosition.height, gnss.getNumSatellites());
+        //commsPort.getBroadcastMessageTopic().publish(gnssMessage);
         
 
     }
@@ -272,7 +300,7 @@ public:
             if (mode == eVehicleMode_t::eVehicleMode_Arm) {
 
                 vehicle.armVehicle();
-                eeprom.saveData();
+                //eeprom.saveData();
 
             } else if (mode == eVehicleMode_t::eVehicleMode_Disarm) {
 
@@ -286,7 +314,7 @@ public:
             vehicle.disarmVehicle();
         }
 
-        if (vehicle.getVehicleData().vehicleMode == eVehicleMode_t::eVehicleMode_Arm && navigationmodule.getNavigationData().position.z > 15) vehicle.disarmVehicle();
+        if (vehicle.getVehicleData().vehicleMode == eVehicleMode_t::eVehicleMode_Arm && navigationmodule.getNavigationData().data.position.z > 15) vehicle.disarmVehicle();
 
     } 
 
@@ -378,7 +406,7 @@ void setup() {
     //Serial5.begin(115200);
 
     Wire.begin();
-    Wire.setClock(100000);
+    Wire.setClock(400000);
 
     EEPROM.begin();
 
@@ -411,6 +439,12 @@ void setup() {
     //delay(2000);
 
     //while (1);
+
+    navigationmodule.setGyroscopeInput(IMU);
+    navigationmodule.setAccelerometerInput(IMU);
+    navigationmodule.setMagnetometerInput(magnetometer);
+    navigationmodule.setBarometerInput(barometer);
+    //navigationmodule.setGNSSInput(gnss);
 
     Task_Abstract::schedulerInitTasks();
 

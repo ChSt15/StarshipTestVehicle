@@ -220,10 +220,10 @@ private:
     eActuatorStatus_t actuatorStatusSetpoint_ = eActuatorStatus_t::eActuatorStatus_Disabled;
 
     //Points to dynamics setpoint data container.
-    Simple_Subscriber<DynamicData> controlOutputSub_;
+    Simple_Subscriber<DataTimestamped<DynamicData>> controlOutputSub_;
 
     //Points to navigation data container.
-    Simple_Subscriber<NavigationData> navigationDataSub_;
+    Simple_Subscriber<DataTimestamped<NavigationData>> navigationDataSub_;
 
     //When true then start tesing all actuators. Can be set to true by module when testing is finished.
     bool actuatorTesting_ = false;
@@ -251,16 +251,16 @@ private:
     //CCW motor control.
     PPMChannel motorCCW_ = PPMChannel(MOTOR_PIN_CCW, ePPMProtocol_t::ePPMProtocol_Oneshot_125us, -1, 2);
     //Up Left flap servo.
-    PPMChannel flapUL_ = PPMChannel(FLAP_SERVO_PIN_UL, ePPMProtocol_t::ePPMProtocol_Standard_1000us, 1, -1);
+    PPMChannel flapUL_ = PPMChannel(FLAP_SERVO_PIN_UL, ePPMProtocol_t::ePPMProtocol_Standard_1000us, -1, 1);
     ServoDynamics flapULControl_ = ServoDynamics(&flapUL_, 1*DEGREES, FLAP_MAX_VELOCITY, FLAP_MAX_ACCEL);
     //Up Right flap servo.
-    PPMChannel flapUR_ = PPMChannel(FLAP_SERVO_PIN_UR, ePPMProtocol_t::ePPMProtocol_Standard_1000us, -1, 1);
+    PPMChannel flapUR_ = PPMChannel(FLAP_SERVO_PIN_UR, ePPMProtocol_t::ePPMProtocol_Standard_1000us, 0.9, -1);
     ServoDynamics flapURControl_ = ServoDynamics(&flapUR_, -5*DEGREES, FLAP_MAX_VELOCITY, FLAP_MAX_ACCEL);
     //Down Left flap servo.
-    PPMChannel flapDL_ = PPMChannel(FLAP_SERVO_PIN_DL, ePPMProtocol_t::ePPMProtocol_Standard_1000us, -1, 1);
+    PPMChannel flapDL_ = PPMChannel(FLAP_SERVO_PIN_DL, ePPMProtocol_t::ePPMProtocol_Standard_1000us, 0.92, -1);
     ServoDynamics flapDLControl_ = ServoDynamics(&flapDL_, -7*DEGREES, FLAP_MAX_VELOCITY, FLAP_MAX_ACCEL);
     //Down Right flap servo.
-    PPMChannel flapDR_ = PPMChannel(FLAP_SERVO_PIN_DR, ePPMProtocol_t::ePPMProtocol_Standard_1000us, 1, -1);
+    PPMChannel flapDR_ = PPMChannel(FLAP_SERVO_PIN_DR, ePPMProtocol_t::ePPMProtocol_Standard_1000us, -1, 1);
     ServoDynamics flapDRControl_ = ServoDynamics(&flapDR_, 1*DEGREES, FLAP_MAX_VELOCITY, FLAP_MAX_ACCEL);
 
     //Enum for flap testing
