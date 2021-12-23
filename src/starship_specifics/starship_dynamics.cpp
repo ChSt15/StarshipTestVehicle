@@ -128,7 +128,7 @@ void StarshipDynamics::thread() {
                 break;
             }
 
-            Vector<> direction = Quaternion<>(Vector<>(0,0,1), float(millis())/1000.0f).rotateVector(Vector<>(1,0,1));//_navigationData->attitude.copy().conjugate().rotateVector(Vector<>(0,0,1));
+            Vector<> direction = FML::Quaternion<>(Vector<>(0,0,1), float(millis())/1000.0f).rotateVector(Vector<>(1,0,1));//_navigationData->attitude.copy().conjugate().rotateVector(Vector<>(0,0,1));
 
             //calculate TVC angles
             float TVC1, TVC2, TVC3, TVC4;

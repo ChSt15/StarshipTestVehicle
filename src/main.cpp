@@ -3,8 +3,6 @@
 #include "boards/board_v_1_0.h"
 #include "KraftKontrol.h"
 
-#include "fastlz.h"
-
 #include "starship_specifics/starship.h"
 
 #include "KraftKontrol/modules/navigation_modules/navigation_kalman.h"
@@ -12,6 +10,7 @@
 #include "KraftKontrol/modules/sensor_modules/magnetometer_modules/hmc5883_driver.h"
 #include "KraftKontrol/platforms/arduino_platform/arduino_data_manager_eeprom.h"
 
+#include <Adafruit_GFX.h>
 #include "Adafruit_SSD1306.h"
 
 
@@ -29,13 +28,15 @@ KraftKommunication commsPort(radio, eKraftMessageNodeID_t::eKraftMessageNodeID_v
 
 BME280Driver barometer(BME280_NCS_PIN, &BME280_SPIBUS);
 MPU9250Driver IMU(MPU9250_INT_PIN, MPU9250_NCS_PIN, &MPU9250_SPIBUS, &eeprom);
-//UbloxSerialGNSS gnss(NEO_M8Q_SERIALPORT);
+UbloxSerialGNSS gnss(NEO_M8Q_SERIALPORT);
 
 I2CBusDevice_HAL magnetometerBusDevice(Wire, QMC5883Registers::QMC5883L_ADDR_DEFAULT);
 QMC5883Driver magnetometer(magnetometerBusDevice, QMC5883Registers::QMC5883L_ADDR_DEFAULT, &eeprom);
 
+SystemModelGeneric systemModel;
+
 //NavigationComplementaryFilter navigationmodule(&IMU, &IMU, &magnetometer, &barometer, &gnss);
-NavigationKalman navigationmodule;
+NavigationKalman navigationmodule(systemModel);
 GuidanceFlyByWire guidanceModule;
 StarshipControl controlModule(guidanceModule, navigationmodule);
 StarshipDynamics dynamicsModule(controlModule, navigationmodule);
@@ -106,6 +107,8 @@ public:
         int64_t length = NOW() - startTime;
 
         Serial.println(String("Raw size: ") + sizeof(NavigationData) + ", new Size: " + size + ", time: " + uint32_t(length/MICROSECONDS));*/
+
+        //Serial.println(String("G: ") + navigationmodule.getNavigationData().data.acceleration.magnitude()/9.81);
 
         //Serial.println(navigationmodule.getNavigationData().data.position.z);
         //Serial.println(IMU.gyroRate());
@@ -238,7 +241,7 @@ public:
 class VehicleModeTransmitter: public Task_Abstract {
 public:
 
-    VehicleModeTransmitter() : Task_Abstract("Vehicle Mode Sender", 4, eTaskPriority_t::eTaskPriority_Middle) {}
+    VehicleModeTransmitter() : Task_Abstract("Vehicle Mode Sender", 5, eTaskPriority_t::eTaskPriority_Middle) {}
 
     void thread() {
 
@@ -255,12 +258,12 @@ public:
 class GNSSDataTransmitter: public Task_Abstract {
 public:
 
-    GNSSDataTransmitter() : Task_Abstract("GNSS Data Sender", 4, eTaskPriority_t::eTaskPriority_Middle) {}
+    GNSSDataTransmitter() : Task_Abstract("GNSS Data Sender", 5, eTaskPriority_t::eTaskPriority_Middle) {}
 
     void thread() {
 
-        //TelemetryMessageGNSSData gnssMessage(navigationmodule.getNavigationData().data.absolutePosition.latitude, navigationmodule.getNavigationData().data.absolutePosition.longitude, navigationmodule.getNavigationData().data.absolutePosition.height, gnss.getNumSatellites());
-        //commsPort.getBroadcastMessageTopic().publish(gnssMessage);
+        TelemetryMessageGNSSData gnssMessage(navigationmodule.getNavigationData().data.absolutePosition.latitude, navigationmodule.getNavigationData().data.absolutePosition.longitude, navigationmodule.getNavigationData().data.absolutePosition.height, gnss.getNumSatellites());
+        commsPort.getBroadcastMessageTopic().publish(gnssMessage);
         
 
     }
@@ -276,6 +279,7 @@ public:
     VehicleModeSetter() : Task_Abstract("Vehicle Mode Setter", 10, eTaskPriority_t::eTaskPriority_Middle) {}
 
     CommandMessageVehicleModeSet vehicleModeSet;
+    eVehicleMode_t lastMode = eVehicleMode_t::eVehicleMode_Disarm;
     KraftMessage_Subscriber subr;
 
     void init() {
@@ -292,19 +296,24 @@ public:
 
             eVehicleMode_t mode = vehicleModeSet.getData(); 
 
-            char modeName[20];
-            getVehicleModeString(modeName, 20, mode);
+            if (mode != lastMode) {
+                lastMode = mode;
 
-            //Serial.println(String("Got Mode: ") + modeName);
+                char modeName[20];
+                getVehicleModeString(modeName, 20, mode);
 
-            if (mode == eVehicleMode_t::eVehicleMode_Arm) {
+                Serial.println(String("Got Mode: ") + modeName);
 
-                vehicle.armVehicle();
-                //eeprom.saveData();
+                if (mode == eVehicleMode_t::eVehicleMode_Arm) {
 
-            } else if (mode == eVehicleMode_t::eVehicleMode_Disarm) {
+                    vehicle.armVehicle();
+                    //eeprom.saveData();
 
-                vehicle.disarmVehicle();
+                } else if (mode == eVehicleMode_t::eVehicleMode_Disarm) {
+
+                    vehicle.disarmVehicle();
+
+                }
 
             }
 
@@ -312,9 +321,13 @@ public:
 
         if (!commsPort.getNodeStatus(eKraftMessageNodeID_t::eKraftMessageNodeID_controller)) {
             vehicle.disarmVehicle();
+            lastMode = eVehicleMode_t::eVehicleMode_Disarm;
         }
 
-        if (vehicle.getVehicleData().vehicleMode == eVehicleMode_t::eVehicleMode_Arm && navigationmodule.getNavigationData().data.position.z > 15) vehicle.disarmVehicle();
+        if (vehicle.getVehicleData().vehicleMode == eVehicleMode_t::eVehicleMode_Arm && navigationmodule.getNavigationData().data.position.z > 15) {
+            vehicle.disarmVehicle();
+            lastMode = eVehicleMode_t::eVehicleMode_Disarm;
+        }
 
     } 
 
@@ -325,7 +338,7 @@ public:
 class VehiclePositionSetter: public Task_Abstract {
 public:
 
-    VehiclePositionSetter() : Task_Abstract("Position Setter", 1, eTaskPriority_t::eTaskPriority_Middle) {}
+    VehiclePositionSetter() : Task_Abstract("Position Setter", 10, eTaskPriority_t::eTaskPriority_Middle) {}
 
     CommandMessagePositionSet vehiclePosSet;
     KraftMessage_Subscriber subr;
@@ -354,7 +367,7 @@ public:
 class ImAlive: public Task_Abstract {
 public:
 
-    ImAlive() : Task_Abstract("Im Alive", 1, eTaskPriority_t::eTaskPriority_Realtime) {}
+    ImAlive() : Task_Abstract("Im Alive", 1, eTaskPriority_t::eTaskPriority_Middle) {}
 
     void thread() {
 
@@ -383,6 +396,75 @@ public:
 };
 
 
+
+class DisplayTest: public Task_Abstract {
+public:
+
+    Adafruit_SSD1306 display;
+
+    Simple_Subscriber<DataTimestamped<GNSSData>> subr;
+
+    int64_t firstGNSSTime = 0;
+
+    DisplayTest() : Task_Abstract("Display test", 5, eTaskPriority_t::eTaskPriority_Middle) {}
+
+    void init() {
+
+        display = Adafruit_SSD1306(128, 32, &Wire);
+        display.begin();
+
+        subr.subscribe(gnss.getGNSSTopic());
+
+    }
+
+
+    void thread() {
+
+        bool isNew = subr.isDataNew();
+
+        DataTimestamped<GNSSData> gnssData = subr.getItem();
+        gnssData.data.velocity.z = 0;
+
+        if (isNew && gnss.getNumSatellites() > 0 && firstGNSSTime == 0) firstGNSSTime = gnssData.data.gnssTOW;
+
+        WorldPosition home;
+        home.height = 324.0;
+        home.longitude = 6.6995721*DEGREES;
+        home.latitude = 49.9463118*DEGREES;
+
+        Vector<> pos = gnssData.data.position.getPositionVectorFrom(home);
+        pos.z = 0;
+
+        display.clearDisplay();
+
+        display.setTextColor(SSD1306_WHITE);
+
+        display.setCursor(5,0);
+        display.println(String("Sats:") + gnss.getNumSatellites() + ", Vel:" + gnssData.data.velocity.magnitude()*3.6f);
+        display.setCursor(5,10);
+        display.println(String("D:") + pos.magnitude());
+        display.setCursor(5,20);
+        display.println(String("L:") + String((double)NOW()/SECONDS, 0) + ", T:" + String((double)(gnssData.data.gnssTOW - firstGNSSTime)/SECONDS, 1) + ", N:" + isNew);
+        /*display.setCursor(5,10);
+        display.println(String("Lat:") + String(gnssData.data.position.latitude, 8));
+        display.setCursor(5,20);
+        display.println(String("Lon:") + String(gnssData.data.position.longitude, 8));*/
+
+        //display.fillScreen(SSD1306_WHITE)
+
+        int64_t start = NOW();
+
+        display.display();
+
+        Serial.println(String("Time: ") + double(NOW() - start)/MILLISECONDS);
+
+
+    }
+
+
+};
+
+
 Observer observer;
 AttitudeTransmitter attTransmitter;
 PositionTransmitter posTransmitter;
@@ -395,7 +477,7 @@ GNSSDataTransmitter gnssTransmitter;
 
 //ImAlive aliveThread;
 
-
+//DisplayTest display;
 
 void setup() {
 
@@ -408,6 +490,7 @@ void setup() {
     Wire.begin();
     Wire.setClock(400000);
 
+
     EEPROM.begin();
 
     eeprom.loadData();
@@ -415,12 +498,27 @@ void setup() {
     //eeprom.clear();
     //eeprom.saveData();
 
+    //CommandMessageAccelCalValues accelValues(Vector<>(9.72, 9.921, 9.805), Vector<>(-9.935, -9.745, -10.08)); //Proto tester
+    //CommandMessageAccelCalValues accelValues(Vector<>(9.481, 9.487, 9.048), Vector<>(-10.172, -10.82, -10.83)); //Starship
+
+    //eeprom.deleteMessage(accelValues);
+
+    /*if (!eeprom.setMessage(accelValues)) {
+
+        //Failed see if we can create a new message. If not then return false.
+        if (!eeprom.newMessage(accelValues));
+
+    }*/
+
+    //eeprom.saveData();
+
     //dynamicsModule.enableTVC(true);
     //dynamicsModule.setActuatorTesting(true);
 
-    //CommandMessageAccelCalValues mes(Vector<>(9.5,9.41,9.03), Vector<>(-10.06,-10.1,-10.82));
+    //CommandMessageMagCalValues mes(Vector<>(9.5,9.41,9.03), Vector<>(-10.06,-10.1,-10.82));
 
-    //if (!eeprom.setMessage(mes)) eeprom.newMessage(mes);
+    //eeprom.deleteMessage(mes);
+    //eeprom.saveData();
 
     //dynamicsModule.setControlModule(controlModule.getControlDataTopic());
     
@@ -442,9 +540,10 @@ void setup() {
 
     navigationmodule.setGyroscopeInput(IMU);
     navigationmodule.setAccelerometerInput(IMU);
+    //navigationmodule.setMagnetometerInput(IMU);
     navigationmodule.setMagnetometerInput(magnetometer);
     navigationmodule.setBarometerInput(barometer);
-    //navigationmodule.setGNSSInput(gnss);
+    navigationmodule.setGNSSInput(gnss);
 
     Task_Abstract::schedulerInitTasks();
 

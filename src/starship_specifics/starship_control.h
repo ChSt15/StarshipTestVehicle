@@ -10,9 +10,13 @@
 #include "KraftKontrol/data_containers/vehicle_data.h"
 
 #include "KraftKontrol/modules/control_modules/control_interface.h"
-#include "KraftKontrol/modules/navigation_modules/navigation_interface.h"
+#include "KraftKontrol/modules/guidance_modules/guidance_interface.h"
+#include "KraftKontrol/modules/navigation_modules/navigation_abstract.h"
 
 #include "KraftKontrol/utils/topic_subscribers.h"
+
+#include "lib/MathHelperLibrary/vector_math.h"
+#include "lib/MathHelperLibrary/FML.h"
 
 
 
@@ -25,7 +29,7 @@ public:
      * @param rate is the rate at which it will be ran at.
      * @param priority is the priority the module will have.
      */
-    StarshipControl(Guidance_Interface& guidanceModule, Navigation_Interface& navigationModule) : Task_Abstract("Starship Control", 4000, eTaskPriority_t::eTaskPriority_Realtime) {
+    StarshipControl(Guidance_Interface& guidanceModule, Navigation_Abstract& navigationModule) : Task_Abstract("Starship Control", 1000, eTaskPriority_t::eTaskPriority_Realtime) {
         setGuidanceModule(guidanceModule);
         setNavigationModule(navigationModule);
     }
@@ -63,7 +67,7 @@ public:
      * Sets the control modules navigation module.
      * @param navigationModule Reference to module to use.
      */
-    inline void setNavigationModule(Navigation_Interface& navigationModule) {
+    inline void setNavigationModule(Navigation_Abstract& navigationModule) {
         navigationSub_.subscribe(navigationModule.getNavigationDataTopic());
     }
 

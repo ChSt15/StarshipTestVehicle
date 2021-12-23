@@ -101,7 +101,7 @@ void StarshipControl::thread() {
         Vector<> rotAxis = Vector<>(0,0,1).cross(forceBuf).normalize();
         float rotAngle = Vector<>(0,0,1).getAngleTo(forceBuf);
         rotAngle = constrain(rotAngle, -15.0f*DEGREES, 15.0f*DEGREES); //Constrain rotation
-        Quaternion<> rotation = Quaternion<>(rotAxis, rotAngle);
+        FML::Quaternion<> rotation = FML::Quaternion<>(rotAxis, rotAngle);
 
         //calculate force output
         float cosLimit = max(cos(rotAngle), 0);
@@ -116,7 +116,7 @@ void StarshipControl::thread() {
         //Update attitude setpoint
         controlSetpoint.attitude = rotation;
 
-        //controlSetpoint.attitude = Quaternion<>(Vector<>(0,1,0), 90*DEGREES);
+        //controlSetpoint.attitude = FML::Quaternion<>(Vector<>(0,1,0), 90*DEGREES);
 
         //Serial.println(controlSetpoint.attitude.toString());
 

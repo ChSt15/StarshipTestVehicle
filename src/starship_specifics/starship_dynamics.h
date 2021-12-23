@@ -13,11 +13,14 @@
 #include "KraftKontrol/dynamics/tvc_dynamics.h"
 
 #include "KraftKontrol/modules/dynamics_modules/dynamics_interface.h"
-#include "KraftKontrol/modules/navigation_modules/navigation_interface.h"
+#include "KraftKontrol/modules/navigation_modules/navigation_abstract.h"
 #include "KraftKontrol/modules/control_modules/control_interface.h"
 
 #include "KraftKontrol/data_containers/navigation_data.h"
 #include "KraftKontrol/data_containers/dynamic_data.h"
+
+#include "lib/MathHelperLibrary/vector_math.h"
+#include "lib/MathHelperLibrary/FML.h"
 
 #include "starship_connections_v_1_0.h"
 
@@ -70,7 +73,7 @@ public:
      * @param controlModule is the module from which control data will be received.
      * @param navigationModule is the module from which navigation data will be received.
      */
-    StarshipDynamics(Control_Interface& controlModule, Navigation_Interface& navigationModule) : Task_Abstract("Starship Dynamics", 1000, eTaskPriority_t::eTaskPriority_Realtime, true) {
+    StarshipDynamics(Control_Interface& controlModule, Navigation_Abstract& navigationModule) : Task_Abstract("Starship Dynamics", 1000, eTaskPriority_t::eTaskPriority_Realtime, true) {
         setControlModule(controlModule);
         setNavigationModule(navigationModule);
     }
@@ -99,7 +102,7 @@ public:
      * Sets the control modules navigation module.
      * @param navigationModule Pointer to module to use.
      */
-    void setNavigationModule(Navigation_Interface& navigationModule) {
+    void setNavigationModule(Navigation_Abstract& navigationModule) {
         navigationDataSub_.subscribe(navigationModule.getNavigationDataTopic());
     }
 

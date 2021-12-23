@@ -9,7 +9,7 @@
 
 #include "KraftKontrol/vehicle/vehicle_interface.h"
 
-#include "KraftKontrol/modules/navigation_modules/navigation_complementary.h"
+#include "KraftKontrol/modules/navigation_modules/navigation_abstract.h"
 #include "KraftKontrol/modules/guidance_modules/guidance_flybywire.h"
 
 #include "starship_dynamics.h"
@@ -22,7 +22,7 @@
 class Starship: public Vehicle_Interface, Task_Abstract {
 public:
 
-    Starship(Guidance_Interface* guidancePointer, Navigation_Interface* navigationPointer, StarshipControl* controlPointer, StarshipDynamics* dynamicsPointer) : Task_Abstract("Starship Vehicle", 100, eTaskPriority_t::eTaskPriority_High) {
+    Starship(Guidance_Interface* guidancePointer, Navigation_Abstract* navigationPointer, StarshipControl* controlPointer, StarshipDynamics* dynamicsPointer) : Task_Abstract("Starship Vehicle", 100, eTaskPriority_t::eTaskPriority_High) {
         guidance_ = guidancePointer;
         navigation_ = navigationPointer;
         control_ = controlPointer;
@@ -51,9 +51,9 @@ public:
 
     /**
      * Returns pointer to the navigation module the vehicle uses. 
-     * @returns Navigation_Interface
+     * @returns Navigation_Abstract
      */
-    Navigation_Interface* getNavigationModulePointer() {return navigation_;}
+    Navigation_Abstract* getNavigationModulePointer() {return navigation_;}
 
     /**
      * Returns pointer to the guidance module the vehicle uses. 
@@ -101,11 +101,13 @@ private:
 
     bool vehicleInitialized_ = false;
 
+    int64_t navresetBegin = 0;
+
     //Contains vehicle data.
     VehicleData vehicleData_;
 
     //Points to the navigation module to use.
-    Navigation_Interface* navigation_;
+    Navigation_Abstract* navigation_;
 
     //Points to the guidance module to use.
     Guidance_Interface* guidance_;
